@@ -1,0 +1,11 @@
+# Keep line endings stable in the repository regardless of the machine that
+# commits. ads.txt and app-ads.txt are AdMob verification files; a checkout that
+# rewrote their endings would still verify, but leaving bytes alone avoids any doubt.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.zip binary

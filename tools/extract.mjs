@@ -1,0 +1,1451 @@
+#!/usr/bin/env node
+// Reads the Unity project's ScriptableObjects and emits the JSON + icons the
+// static wiki consumes. Run from anywhere:
+//
+//   node tools/extract.mjs
+//   node tools/extract.mjs --project ../SomeOtherCheckout
+//   PIXEL_CHRONICLES=D:\work\PixelChronicles node tools/extract.mjs
+//
+// This repository sits *outside* the Unity project, so the project has to be
+// located rather than assumed: a `--project` argument wins, then the
+// PIXEL_CHRONICLES environment variable, then a sibling folder next to this one.
+//
+// Everything written lands under site/ (data/ and icons/); nothing in the Unity
+// project is ever modified — it is only read.
+
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync, existsSync } from 'node:fs';
+import { join, relative, dirname, basename, resolve, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { readUnityYaml, parseUnityYaml, fp } from './lib/unity-yaml.mjs';
+import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID } from './lib/quantum-guid.mjs';
+import { resolveSprite } from './lib/sprite.mjs';
+import * as E from './lib/enums.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+// The repository root *is* the published website, so pushing the repo deploys it.
+// `tools/` sits alongside the pages and is served as inert static files.
+const SITE = join(HERE, '..');
+
+/** Candidate Unity project roots, best first. */
+function findProject() {
+  const flag = process.argv.indexOf('--project');
+  const candidates = [
+    flag !== -1 ? process.argv[flag + 1] : null,
+    process.env.PIXEL_CHRONICLES,
+    join(SITE, '..', 'PixelChronicles'),
+    join(SITE, '..'),                       // checked out inside the project
+  ].filter(Boolean).map((p) => resolve(p));
+
+  for (const candidate of candidates) {
+    if (existsSync(join(candidate, 'Assets', 'Resources_moved', 'ScriptableObjects'))) return candidate;
+  }
+
+  console.error('Could not find the Pixel Chronicles Unity project. Looked in:');
+  for (const c of candidates) console.error(`  ${c}`);
+  console.error('\nPass it explicitly:  node tools/extract.mjs --project <path-to-unity-project>');
+  process.exit(1);
+}
+
+const PROJECT = findProject();
+const ASSETS = join(PROJECT, 'Assets');
+const SO = join(ASSETS, 'Resources_moved', 'ScriptableObjects');
+// The wiki app is a subfolder of the site, so marketing pages and wiki deploy
+// together in one push.
+const OUT = join(SITE, 'wiki');
+const DATA = join(OUT, 'data');
+const ICONS = join(OUT, 'icons');
+const SITE_ASSETS = join(SITE, 'assets');
+
+const MONSTER_ENTITIES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'Monsters');
+const WORLD_RESOURCES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'WorldObjects', 'WorldResources');
+const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements');
+
+// The biome folders under LootTables/Monsters and the generator name prefixes
+// disagree on one name; the folder spelling is what the wiki shows.
+const BIOME_ALIASES = { Plain: 'Plains' };
+const biomeName = (s) => BIOME_ALIASES[s] ?? s;
+
+// m_Script guids identify the C# type behind each .asset.
+const SCRIPT = {
+  item: 'bdfeb0f3bca14f3d8f6be8fd743e20d2',
+  itemSet: 'd5c2784fc34640bf81d6765e596309fe',
+  lootTable: '4be10c9866e84c599ee64539633aeb70',
+  monster: '4879239ecf2547399315a51f1c50a460',
+  recipe: 'f7bceb4aaea476a4ca89ac8bcf798625',
+  summonConfig: 'f579e6d1ec2b42309f2fef2a1855450c',
+  summonPool: '55e5fae9d9e73c749a60a088d18243b4',
+};
+
+// Item categories kept out of the wiki for now. Accessories are procedurally
+// generated and rolled per drop, so they need their own presentation.
+const EXCLUDED_ITEM_CATEGORIES = new Set(['Accessory']);
+
+// Summon banners that are development scaffolding rather than live content.
+const EXCLUDED_SUMMON_CONFIGS = new Set(['TestEventSummonConfig']);
+
+// Loot table folders left out. Tutorial props are scripted one-offs, not
+// something a player can go and farm.
+const EXCLUDED_LOOT_KINDS = new Set(['Tutorial']);
+
+// Directories the reference scan reads. Third-party SDKs cannot mention game
+// content, and skipping them keeps the pass to a few seconds.
+const REFERENCE_ROOTS = ['Resources_moved', 'QuantumUser', 'Core', 'Resources', 'Settings'];
+
+/**
+ * Files that must not count as evidence that an item is used.
+ *
+ * `UnityDB.prefab` is the Quantum asset registry: it lists every asset in the
+ * project, so without excluding it every item looks referenced. The rest is
+ * content the wiki already treats as dead, and dead content should not keep an
+ * item alive.
+ */
+const NOT_EVIDENCE = [
+  /UnityDB\.prefab$/i,
+  /[\\/]Unused[\\/]/i,
+  /LootTables[\\/]Tutorial[\\/]/i,
+  /TestEventSummonConfig\.asset$/i,
+  // A bot's starting loadout is not something a player can obtain.
+  /PlayerBot\.prefab$/i,
+];
+
+const warnings = [];
+const warn = (msg) => { warnings.push(msg); };
+
+// ---------------------------------------------------------------- filesystem
+
+function walk(dir, filter, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walk(full, filter, out);
+    else if (filter(full)) out.push(full);
+  }
+  return out;
+}
+
+const isAsset = (p) => p.endsWith('.asset');
+const posix = (p) => p.split(sep).join('/');
+const num = (v) => (v == null ? 0 : Number(v));
+
+// ------------------------------------------------------- guid -> asset path
+
+/** Unity stores each asset's guid in its sibling `.meta`; invert that mapping. */
+function buildGuidIndex() {
+  const index = new Map();
+  for (const meta of walk(ASSETS, (p) => p.endsWith('.meta'))) {
+    const m = /^guid:\s*([0-9a-f]{32})\s*$/m.exec(readFileSync(meta, 'utf8').slice(0, 400));
+    if (m) index.set(m[1], meta.slice(0, -'.meta'.length));
+  }
+  return index;
+}
+
+/**
+ * Quantum AssetGuid -> the document that declares it. Only `.asset` files carry
+ * an `Identifier` block; prefab prototypes are handled by buildPrototypeIndex.
+ */
+function buildQuantumIndex() {
+  const index = new Map();
+  for (const file of walk(ASSETS, isAsset)) {
+    const text = readFileSync(file, 'utf8');
+    if (!text.includes('Identifier:')) continue;
+    let docs;
+    try { docs = parseUnityYaml(text); }
+    catch { continue; }
+    for (const doc of docs) {
+      const value = doc.body?.Identifier?.Guid?.Value;
+      if (value != null) index.set(String(value), { file, body: doc.body });
+    }
+  }
+  return index;
+}
+
+// ------------------------------------------------------------- localization
+
+/**
+ * English string for every I2Loc term. Only index 0 (English) is read, and the
+ * surrounding mSource config — which holds the Google Sheets service URL and
+ * password — is deliberately never touched.
+ */
+function loadEnglish() {
+  const doc = readUnityYaml(join(ASSETS, 'Resources', 'I2Languages.asset'))[0];
+  const src = doc.body.mSource;
+  const enIndex = (src.mLanguages ?? []).findIndex((l) => l.Code === 'en');
+  if (enIndex === -1) throw new Error('No English language in I2Languages');
+
+  const map = new Map();
+  for (const term of src.mTerms ?? []) {
+    const value = term.Languages?.[enIndex];
+    if (typeof value === 'string' && value !== '') map.set(term.Term, value);
+  }
+  return map;
+}
+
+/** Split PascalCase into words, for entries with no localization entry. */
+const prettify = (s) => String(s ?? '')
+  .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+  .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2')
+  .trim();
+
+/**
+ * Drop the `{[PREFIX]}` / `{[TIER]}` runtime placeholders that the randomly
+ * named accessories carry, leaving the readable stem ("Ring", "Necklace").
+ */
+const displayName = (s) => String(s ?? '').replace(/\{\[[^\]]*\]\}/g, ' ').replace(/\s+/g, ' ').trim();
+
+/**
+ * Two items may legitimately share a display name (five rarities of "Ring").
+ * Qualify the duplicates with their rarity so every label is distinguishable.
+ */
+function disambiguateNames(items) {
+  const counts = new Map();
+  for (const i of items) counts.set(i.name, (counts.get(i.name) ?? 0) + 1);
+  for (const i of items) if (counts.get(i.name) > 1) i.name = `${i.rarity} ${i.name}`;
+}
+
+// -------------------------------------------------------------------- icons
+
+const iconJobs = new Map(); // destination relative path -> source file
+
+/**
+ * Returns a plain `icons/...` path for a standalone sprite, or
+ * `{ src, crop }` when the sprite is one cell of a sheet — the site crops it with
+ * CSS so the pixels are never re-encoded.
+ */
+function queueIcon(spriteRef, guidIndex, subdir, name) {
+  if (!spriteRef?.guid) return null;
+  const resolved = resolveSprite(spriteRef, guidIndex);
+  if (!resolved || resolved.error) {
+    if (resolved?.error) warn(`${subdir}/${name}: ${resolved.error}`);
+    return null;
+  }
+
+  const src = resolved.file;
+  const rel = `${subdir}/${name}${src.slice(src.lastIndexOf('.')).toLowerCase()}`;
+  iconJobs.set(rel, src);
+  return resolved.crop ? { src: `icons/${rel}`, crop: resolved.crop } : `icons/${rel}`;
+}
+
+function queueIconFile(src, subdir, name) {
+  const rel = `${subdir}/${name}${src.slice(src.lastIndexOf('.')).toLowerCase()}`;
+  iconJobs.set(rel, src);
+  return `icons/${rel}`;
+}
+
+/**
+ * Empty the icon folder, then copy. Clearing first matters on Windows: its
+ * filesystem is case-insensitive but case-*preserving*, so overwriting
+ * `Tyrios.png` with `tyrios.png` keeps the old directory entry — and GitHub
+ * Pages, which is case-sensitive, would then 404 on the icon. Files are removed
+ * one by one rather than with a recursive rmdir, which trips over the file locks
+ * Windows editors and indexers hold.
+ */
+/**
+ * Drop queued icons nothing ends up pointing at. Icons are queued while reading
+ * an asset, but entries are filtered afterwards (excluded categories, hidden
+ * bosses), so without this the payload ships unreachable PNGs.
+ */
+function pruneUnreferencedIcons(payloads) {
+  const referenced = new Set();
+  const visit = (node) => {
+    if (typeof node === 'string') { if (node.startsWith('icons/')) referenced.add(node.slice('icons/'.length)); return; }
+    if (Array.isArray(node)) { node.forEach(visit); return; }
+    if (node && typeof node === 'object') Object.values(node).forEach(visit);
+  };
+  payloads.forEach(visit);
+
+  let removed = 0;
+  for (const rel of [...iconJobs.keys()]) {
+    if (!referenced.has(rel)) { iconJobs.delete(rel); removed++; }
+  }
+  return removed;
+}
+
+function writeIcons() {
+  for (const file of walk(ICONS, () => true)) {
+    try { rmSync(file, { force: true, maxRetries: 3, retryDelay: 60 }); }
+    catch (err) { warn(`could not clear old icon ${posix(relative(SITE, file))}: ${err.code ?? err.message}`); }
+  }
+  for (const [rel, src] of iconJobs) {
+    const dest = join(ICONS, rel);
+    mkdirSync(dirname(dest), { recursive: true });
+    copyFileSync(src, dest);
+  }
+}
+
+// ------------------------------------------------------------------ elements
+
+/**
+ * Artwork the marketing pages use. Copied from the project rather than kept by
+ * hand so the landing page cannot drift from the game's own logo and icon.
+ */
+function copySiteAssets() {
+  const wanted = [
+    ['logo.png', join(ASSETS, 'Resources_moved', 'TitleScreen', 'PixelChroniclesLogo.png')],
+    ['hero.png', join(ASSETS, 'Resources', 'GameIcons', 'GameIcon1.png')],
+    ['studio.png', join(ASSETS, 'Resources', 'SplashScreen', 'MoonForgeLogo.png')],
+  ];
+
+  mkdirSync(SITE_ASSETS, { recursive: true });
+  const copied = [];
+  for (const [name, src] of wanted) {
+    if (!existsSync(src)) { warn(`site asset missing: ${posix(relative(ASSETS, src))}`); continue; }
+    copyFileSync(src, join(SITE_ASSETS, name));
+    copied.push(name);
+  }
+  return copied;
+}
+
+function adventureIcon() {
+  const file = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Destinations', 'AdventureIcon.png');
+  if (existsSync(file)) return queueIconFile(file, 'gamemodes', 'adventure');
+  warn('AdventureIcon.png not found');
+  return null;
+}
+
+/** Element name -> icon path. There is no artwork for Neutral. */
+function extractElementIcons() {
+  const icons = {};
+  for (const element of E.Elements) {
+    const file = join(ELEMENT_ICONS, `${element}Element.png`);
+    if (existsSync(file)) icons[element] = queueIconFile(file, 'elements', element.toLowerCase());
+  }
+  const missing = E.Elements.filter((e) => !icons[e] && e !== 'Neutral');
+  if (missing.length) warn(`no element icon for ${missing.join(', ')}`);
+  return icons;
+}
+
+// --------------------------------------------------------------- asset docs
+
+function loadDocs(files) {
+  const out = [];
+  for (const file of files) {
+    let docs;
+    try { docs = readUnityYaml(file); }
+    catch (err) { warn(`failed to parse ${posix(relative(PROJECT, file))}: ${err.message}`); continue; }
+    for (const doc of docs) out.push({ file, doc });
+  }
+  return out;
+}
+
+const scriptGuid = (doc) => doc.body?.m_Script?.guid ?? null;
+
+/**
+ * Flatten a prefab's variant overrides into `propertyPath -> modification`. The
+ * whole modification is kept, not just `value`: asset references live in
+ * `objectReference` and leave `value` empty.
+ */
+function prefabOverrides(docs) {
+  const out = new Map();
+  for (const doc of docs) {
+    for (const mod of doc.body?.m_Modification?.m_Modifications ?? []) {
+      if (mod?.propertyPath != null && !out.has(mod.propertyPath)) out.set(mod.propertyPath, mod);
+    }
+  }
+  return out;
+}
+
+// -------------------------------------------------------------------- items
+
+function extractItems(guidIndex, en) {
+  const items = [];
+  const byGuid = new Map();
+  const fileByKey = new Map();
+
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Items'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.item) continue;
+    const b = doc.body;
+    const relPath = posix(relative(join(SO, 'Items'), file)).replace(/\.asset$/, '');
+    const slot = E.named(E.EquipSlots, b.EquipSlot, 'None');
+    const isWeapon = !!(b.IsWeapon ?? b.IsSword);
+    const key = b._friendlyId || basename(file, '.asset');
+    const category = categoriseItem(relPath, b, isWeapon);
+    // Excluded items are still built so loot and recipe references resolve, but
+    // there is no point resolving artwork that will be pruned.
+    const wanted = !EXCLUDED_ITEM_CATEGORIES.has(category);
+
+    const item = {
+      id: b._id,
+      // `Name` is the localization key and is shared by every tier of the
+      // procedurally-named accessories, so it cannot identify an item.
+      // `_friendlyId` is unique across all items and reads well in a URL.
+      key,
+      nameKey: b.Name,
+      name: displayName(en.get(`Item/${b.Name}`) ?? prettify(b.Name)),
+      category,
+      group: relPath.split('/').slice(0, -1).join('/') || 'Misc',
+      rarity: E.named(E.ItemRarities, b.Rarity, 'Common'),
+      rarityIndex: Number(b.Rarity ?? 0),
+      slot: slot === 'None' ? null : slot,
+      stats: {
+        health: num(b.Health),
+        attack: num(b.Attack),
+        defense: num(b.Defense),
+        attackSpeed: fp(b.AttackSpeed) || null,
+      },
+      tool: b.IsTool ? { type: E.named(E.ToolTypes, b.ToolType, 'None'), tier: num(b.ToolTier), damage: num(b.ToolDamage) } : null,
+      isWeapon,
+      maxStack: num(b.MaxAmount) || 1,
+      upgradable: !!b.IsUpgradable,
+      maxCharges: num(b.MaxCharges) || null,
+      icon: wanted ? queueIcon(b.Sprite, guidIndex, 'items', key) : null,
+      tags: [],          // filled in by tagItems(), once drops and recipes are linked
+      droppedBy: [],
+      craftedBy: [],
+      usedIn: [],
+      set: null,
+    };
+
+    // Zero-valued stats are noise on materials; drop them entirely.
+    if (!item.stats.health && !item.stats.attack && !item.stats.defense && !item.stats.attackSpeed) {
+      item.stats = null;
+    }
+
+    items.push(item);
+    fileByKey.set(key, file);
+    const g = readMetaGuid(file);
+    if (g) byGuid.set(g, item);
+  }
+
+  disambiguateNames(items);
+  items.sort((a, b) => a.name.localeCompare(b.name));
+  return { items, byGuid, fileByKey };
+}
+
+function categoriseItem(relPath, b, isWeapon) {
+  const top = relPath.split('/')[0];
+  if (top === 'Weapons') return 'Weapon';
+  if (top === 'Armors') return 'Armor';
+  if (top === 'Accessories') return 'Accessory';
+  if (top === 'Materials') return 'Material';
+  if (top === 'Tools') return 'Tool';
+  if (top === 'PremiumItems') return 'Premium';
+  if (isWeapon) return 'Weapon';
+  if (b.IsTool) return 'Tool';
+  return 'Other';
+}
+
+// ---------------------------------------------------------------- item sets
+
+function extractSets(en, itemsByGuid) {
+  const sets = [];
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Items', 'ItemSets'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.itemSet) continue;
+    const b = doc.body;
+    sets.push({
+      key: b._nameKey,
+      name: en.get(`Item/Set/${b._nameKey}`) ?? prettify(b._nameKey),
+      pieces: (b.Items ?? []).map((ref) => itemsByGuid.get(ref?.guid)?.key).filter(Boolean),
+      associatedWeapon: itemsByGuid.get(b.AssociatedSword?.guid)?.key ?? null,
+      bonuses: (b.StatSetEffects ?? []).map((e) => formatStat(e.StatIndex, e.Value, e.IsFlat)),
+    });
+  }
+  sets.sort((a, b) => a.name.localeCompare(b.name));
+  return sets;
+}
+
+function formatStat(statIndex, value, isFlat) {
+  const stat = E.named(E.StatIndexes, statIndex, `Stat ${statIndex}`);
+  const raw = fp(value);
+  const percent = !isFlat || E.PercentStats.has(stat);
+  return {
+    stat,
+    value: percent ? Math.round(raw * 1000) / 10 : Math.round(raw),
+    unit: percent ? '%' : 'flat',
+  };
+}
+
+// ------------------------------------------------------------ combat levels
+
+/**
+ * One pass over the 123 combat levels. Yields where each monster appears (and in
+ * what role) plus the resource generators, which are the only place that ties a
+ * harvestable resource to a biome.
+ */
+function scanCombatLevels() {
+  const appearances = new Map(); // monster friendlyId -> Set("Chapters:Boss")
+  const generators = [];         // { biome, difficulty, chapter, file }
+
+  for (const file of walk(join(SO, 'CombatLevels'), isAsset)) {
+    const rel = posix(relative(join(SO, 'CombatLevels'), file));
+    const area = rel.split('/')[0]; // Chapters | Dungeons | Raids
+    const name = basename(file, '.asset');
+
+    const generatorMatch = /^(.+?)(Normal|Hard|Master)_Resources?Generator$/.exec(name);
+    if (generatorMatch) {
+      generators.push({
+        biome: biomeName(prettify(generatorMatch[1])),
+        difficulty: generatorMatch[2],
+        chapter: rel.split('/')[1] ?? null,
+        file,
+      });
+      continue;
+    }
+
+    // Walking raw lines is far cheaper than parsing these very large documents,
+    // and the two fields we need always appear in this order per enemy.
+    let current = null;
+    for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
+      const enemy = /^\s*EnemyFriendlyId:\s*(\S+)\s*$/.exec(line);
+      if (enemy) { current = enemy[1]; continue; }
+      const type = /^\s*Type:\s*(\d+)\s*$/.exec(line);
+      if (type && current) {
+        const role = E.named(E.EnemyTypes, type[1], 'Basic');
+        if (!appearances.has(current)) appearances.set(current, new Set());
+        appearances.get(current).add(`${area}:${role}`);
+        current = null;
+      }
+    }
+  }
+
+  return { appearances, generators };
+}
+
+/**
+ * Every harvestable prefab, indexed by the loot table it drops. Built from the
+ * prefabs themselves rather than from the generators, so tutorial props and
+ * chests — which no generator spawns — still get an icon.
+ */
+function scanResourcePrefabs(guidIndex) {
+  const byLootTable = new Map(); // AssetGuid -> Map(prefab name -> { prefab, sprite })
+
+  for (const prefab of walk(WORLD_RESOURCES, (p) => p.endsWith('.prefab'))) {
+    const docs = readUnityYaml(prefab);
+    const lootGuid = prefabOverrides(docs).get('Prototype.LootTable.Id.Value')?.value;
+    if (lootGuid == null || String(lootGuid) === '0') continue; // e.g. Bush drops nothing
+
+    const key = String(lootGuid);
+    if (!byLootTable.has(key)) byLootTable.set(key, new Map());
+    byLootTable.get(key).set(basename(prefab, '.prefab'), { prefab, sprite: resourceIconRef(prefab, guidIndex) });
+  }
+  return byLootTable;
+}
+
+/**
+ * The icon the WorldResource component declares — the authored single frame, not
+ * the scene renderer's sprite, which for trees and cacti is one cell of an
+ * animation sheet. Follows the variant chain: biome chests override only their
+ * loot table and inherit `ResourceIcon` from `Chest.prefab`.
+ */
+function resourceIconRef(file, guidIndex, seen = new Set()) {
+  if (seen.has(file)) return null;
+  seen.add(file);
+
+  const docs = readUnityYaml(file);
+
+  const icon = prefabOverrides(docs).get('Prototype.ResourceIcon');
+  if (icon?.objectReference?.guid) return icon.objectReference;
+  for (const doc of docs) {
+    const direct = doc.body?.Prototype?.ResourceIcon;
+    if (direct?.guid) return direct;
+  }
+
+  for (const doc of docs) {
+    const guid = doc.body?.m_SourcePrefab?.guid;
+    const parent = guid && guidIndex.get(guid);
+    if (parent && parent.endsWith('.prefab')) {
+      const found = resourceIconRef(parent, guidIndex, seen);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/**
+ * Resource loot table -> the biomes it can be harvested in.
+ *
+ * A resource's biome exists nowhere on the resource itself: several biomes share
+ * the same prefab (every ore lives in a single `Rocks/` folder) and several
+ * prefabs share one loot table (all tree variants drop from `Tree_LootTable`).
+ * The only authority is the per-biome, per-difficulty ResourceGenerator that
+ * spawns them.
+ */
+function scanResourceSpawns(generators, prototypeIndex, resourcePrefabs) {
+  const lootTableOf = new Map(); // prefab path -> loot table AssetGuid
+  for (const [lootGuid, prefabs] of resourcePrefabs) {
+    for (const { prefab } of prefabs.values()) lootTableOf.set(prefab, lootGuid);
+  }
+
+  const spawns = new Map(); // loot table AssetGuid -> { biomes, entries }
+  for (const gen of generators) {
+    const body = readUnityYaml(gen.file)[0]?.body;
+    for (const resource of body?.Resources ?? []) {
+      const id = String(resource.EntityPrototypeRef?.Id?.Value ?? '');
+      const prefab = prototypeIndex.get(id);
+      if (!prefab) { warn(`${basename(gen.file, '.asset')} references prototype ${id} with no prefab`); continue; }
+
+      const lootGuid = lootTableOf.get(prefab);
+      if (!lootGuid) continue;
+
+      if (!spawns.has(lootGuid)) spawns.set(lootGuid, { biomes: new Set(), entries: [] });
+      const entry = spawns.get(lootGuid);
+      entry.biomes.add(gen.biome);
+      entry.entries.push({
+        biome: gen.biome,
+        difficulty: gen.difficulty,
+        resource: basename(prefab, '.prefab'),
+        spawnChance: Math.round(fp(resource.Probability) * 1000) / 10,
+      });
+    }
+  }
+  return spawns;
+}
+
+/**
+ * Pick the artwork for a loot table's source: prefer the prefab named like the
+ * table (`Tree_LootTable` -> `Tree.prefab`) over the variants sharing it
+ * (`SwampTree`, `Pine Tree`, …).
+ */
+function sourceIcon(prefabs, tableName, guidIndex, name) {
+  if (!prefabs) return null;
+  const loose = tableName.replace(/\s+/g, '').toLowerCase();
+  const match = prefabs.get(tableName)
+    ?? [...prefabs.entries()].find(([n]) => n.replace(/\s+/g, '').toLowerCase() === loose)?.[1]
+    ?? [...prefabs.values()][0];
+  return match?.sprite ? queueIcon(match.sprite, guidIndex, 'sources', name) : null;
+}
+
+// --------------------------------------------------------------- loot tables
+
+function extractLootTables(guidIndex, en, itemsByGuid, spawns, resourcePrefabs) {
+  const tables = [];
+  const byQuantumGuid = new Map();
+
+  for (const { file, doc } of loadDocs(walk(join(SO, 'LootTables'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.lootTable) continue;
+    const b = doc.body;
+    const relPath = posix(relative(join(SO, 'LootTables'), file)).replace(/\.asset$/, '');
+    const parts = relPath.split('/');
+    const folder = parts[0];                     // Monsters | Chests | Resources | Tutorial
+    if (EXCLUDED_LOOT_KINDS.has(folder)) continue;
+    // Tolerant of the misspelled assets: VolcaniteOre_LooTable is missing a `t`,
+    // and without this the wiki showed a source called "Volcanite Ore_Loo Table".
+    const rawName = basename(relPath).replace(/_Lo+t?Table$/i, '');
+    const quantumGuid = b.Identifier?.Guid?.Value != null ? String(b.Identifier.Guid.Value) : null;
+    const spawn = quantumGuid ? spawns.get(quantumGuid) : null;
+
+    // Only harvestable prefabs live under WorldObjects/WorldResources, so being
+    // indexed there settles what a table really is when the folder disagrees —
+    // DesertTree_LootTable sits in LootTables/Monsters/Desert but is a tree.
+    const harvestable = quantumGuid ? resourcePrefabs.get(quantumGuid) : null;
+    let kind = folder;
+    if (harvestable && folder === 'Monsters') {
+      kind = 'Resources';
+      warn(`${relPath} is a harvestable resource filed under Monsters/ — shown as a resource`);
+    }
+
+    const table = {
+      id: relPath,
+      quantumGuid,
+      kind,
+      sourceKey: rawName,
+      sourceName: lootSourceName(kind, rawName, en),
+      // Monster tables are filed under a biome folder; harvestables get theirs
+      // from the generators that spawn them, and can belong to several.
+      biomes: kind === 'Monsters'
+        ? (parts.length > 2 ? [biomeName(parts[1])] : [])
+        : [...(spawn?.biomes ?? (parts.length > 2 ? [biomeName(parts[1])] : []))].sort(),
+      spawns: spawn?.entries.sort((a, b2) => a.biome.localeCompare(b2.biome) || a.difficulty.localeCompare(b2.difficulty)) ?? [],
+      icon: sourceIcon(harvestable, rawName, guidIndex, rawName.toLowerCase()),
+      entries: (b.LootEntries ?? []).map((entry) => {
+        const item = itemsByGuid.get(entry.Item?.guid);
+        if (!item) warn(`loot table ${relPath} references unknown item guid ${entry.Item?.guid}`);
+        return {
+          item: item?.key ?? null,
+          itemName: item?.name ?? `(missing item ${entry.Item?.guid ?? '?'})`,
+          chance: {
+            normal: pct(entry.NormalProbability),
+            hard: pct(entry.HardProbability),
+            master: pct(entry.MasterProbability),
+          },
+          amounts: amountDistribution(entry.Count),
+        };
+      }),
+    };
+
+    tables.push(table);
+    if (quantumGuid) byQuantumGuid.set(quantumGuid, table);
+  }
+
+  tables.sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+  return { tables, byQuantumGuid };
+}
+
+function lootSourceName(kind, rawName, en) {
+  if (kind === 'Monsters') return en.get(`Monster/${rawName}`) ?? prettify(rawName);
+  return en.get(`Resource/${rawName}`) ?? prettify(rawName);
+}
+
+const pct = (v) => (v == null ? null : Math.round(Number(v) * 1000) / 10);
+
+/** RNGNeeds probability list -> `[{ amount, chance }]`, chance in percent. */
+function amountDistribution(count) {
+  return (count?.m_ProbabilityItems ?? [])
+    .filter((p) => p.m_Enabled !== 0)
+    .map((p) => ({ amount: num(p.m_Value), chance: pct(p.m_BaseProbability) }))
+    .sort((a, b) => a.amount - b.amount);
+}
+
+// ----------------------------------------------------------------- monsters
+
+/** Monster stats live on the Quantum entity prefab, mostly as prefab-variant overrides. */
+function monsterPrefabIndex() {
+  const index = new Map();
+  for (const file of walk(MONSTER_ENTITIES, (p) => p.endsWith('.prefab'))) {
+    index.set(basename(file, '.prefab'), file);
+  }
+  return index;
+}
+
+function readPrefabStats(file, guidIndex, seen = new Set()) {
+  if (seen.has(file)) return {};
+  seen.add(file);
+
+  const docs = readUnityYaml(file);
+  const stats = {};
+  const skillGuids = [];
+  const passiveGuids = [];
+
+  const put = (path, value) => {
+    const set = (k, v) => { if (stats[k] == null) stats[k] = v; };
+    switch (path) {
+      case 'Prototype.Health': set('health', num(value)); break;
+      case 'Prototype.Attack': set('attack', num(value)); break;
+      case 'Prototype.Defense': set('defense', num(value)); break;
+      case 'Prototype.WeightedStats': set('weightedStats', num(value)); break;
+      case 'Prototype.AttackSpeed.RawValue': set('attackSpeed', fp(value)); break;
+      case 'Prototype.AttackInterval.RawValue': set('attackInterval', fp(value)); break;
+      case 'Prototype.Element.Value': set('element', E.named(E.Elements, value, 'Neutral')); break;
+      // Quantum writes 0 for "no asset"; the base prefab does exactly that.
+      case 'Prototype.LootTable.Id.Value': if (String(value) !== '0') set('lootTableGuid', String(value)); break;
+      default: break;
+    }
+    const skill = /^Prototype\.Skills\.Array\.data\[(\d+)\]\.SkillData\.Id\.Value$/.exec(path);
+    if (skill) skillGuids[Number(skill[1])] = String(value);
+    if (path === 'Prototype.Passive.PassiveData.Id.Value' && String(value) !== '0') passiveGuids.push(String(value));
+  };
+
+  // Prefab variants: values arrive as property-path overrides.
+  for (const [path, mod] of prefabOverrides(docs)) put(path, mod.value);
+
+  // Plain prefabs: values sit directly on the component's Prototype block.
+  for (const doc of docs) {
+    const proto = doc.body?.Prototype;
+    if (!proto || typeof proto !== 'object') continue;
+    if (proto.Health != null) put('Prototype.Health', proto.Health);
+    if (proto.Attack != null) put('Prototype.Attack', proto.Attack);
+    if (proto.Defense != null) put('Prototype.Defense', proto.Defense);
+    if (proto.WeightedStats != null) put('Prototype.WeightedStats', proto.WeightedStats);
+    if (proto.AttackSpeed?.RawValue != null) put('Prototype.AttackSpeed.RawValue', proto.AttackSpeed.RawValue);
+    if (proto.AttackInterval?.RawValue != null) put('Prototype.AttackInterval.RawValue', proto.AttackInterval.RawValue);
+    if (proto.Element?.Value != null) put('Prototype.Element.Value', proto.Element.Value);
+    if (proto.LootTable?.Id?.Value != null) put('Prototype.LootTable.Id.Value', proto.LootTable.Id.Value);
+  }
+
+  stats.skillGuids = skillGuids.filter(Boolean);
+  stats.passiveGuids = passiveGuids;
+
+  // Anything this variant does not override is inherited from the prefab it was
+  // created from ("Monster base.prefab" holds the defaults), so walk up.
+  if (stats.health == null || stats.attack == null || stats.defense == null) {
+    for (const doc of docs) {
+      const guid = doc.body?.m_SourcePrefab?.guid;
+      const parent = guid && guidIndex.get(guid);
+      if (!parent || !parent.endsWith('.prefab')) continue;
+      const inherited = readPrefabStats(parent, guidIndex, seen);
+      for (const [k, v] of Object.entries(inherited)) {
+        if (stats[k] == null || (Array.isArray(stats[k]) && stats[k].length === 0)) stats[k] = v;
+      }
+      if (stats.health != null && stats.attack != null && stats.defense != null) break;
+    }
+  }
+
+  return stats;
+}
+
+function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appearances, elementIcons }) {
+  const prefabs = monsterPrefabIndex();
+  const monsters = [];
+  const hidden = [];
+  const byGuid = new Map();
+
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Monsters'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.monster) continue;
+    const b = doc.body;
+    const prefabName = basename(file, '.asset').replace(/Data$/, '');
+    const nameKey = b._nameKey || prefabName;
+    const key = b._friendlyId || prefabName;
+    const prefab = prefabs.get(prefabName);
+
+    let stats = {};
+    if (prefab) stats = readPrefabStats(prefab, guidIndex);
+    else warn(`no prefab found for monster ${prefabName} — stats and loot table unavailable`);
+
+    // Wave roles are only used to spot raid bosses. They are not published: the
+    // same monster is Basic in one stage and Elite in another, so the label says
+    // something about the encounter, not about the monster.
+    const roles = [...(appearances.get(key) ?? [])].sort();
+    if (isRaidExclusiveBoss(roles)) { hidden.push(key); continue; }
+
+    const lootTable = stats.lootTableGuid ? lootByQuantumGuid.get(stats.lootTableGuid) : null;
+    if (stats.lootTableGuid && !lootTable) {
+      warn(`monster ${key} references loot table guid ${stats.lootTableGuid} with no matching asset`);
+    }
+
+    const element = stats.element ?? 'Neutral';
+    const monster = {
+      id: b._id,
+      key,
+      nameKey,
+      name: en.get(`Monster/${nameKey}`) ?? prettify(nameKey),
+      rarity: E.named(E.MonsterRarities, b.Rarity, 'Common'),
+      rarityIndex: Number(b.Rarity ?? 0),
+      element,
+      elementIcon: elementIcons[element] ?? null,
+      environment: E.named(E.EnvironmentDisplays, b.EnvironmentDisplay, null),
+      obtainable: !!b.Obtainable,
+      stats: {
+        health: stats.health ?? null,
+        attack: stats.attack ?? null,
+        defense: stats.defense ?? null,
+        attackSpeed: stats.attackSpeed ?? null,
+        attackInterval: stats.attackInterval ?? null,
+        weightedStats: stats.weightedStats ?? null,
+      },
+      skills: monsterSkills(nameKey, stats, quantumIndex, guidIndex, en),
+      icon: queueIcon(b.Icon, guidIndex, 'monsters', key),
+      lootTable: lootTable?.id ?? null,
+      // filled in by extractSummons()
+      summon: [],
+      summonable: false,
+    };
+
+    monsters.push(monster);
+    const assetGuid = readMetaGuid(file);
+    if (assetGuid) byGuid.set(assetGuid, monster);
+  }
+
+  monsters.sort((a, b) => a.name.localeCompare(b.name));
+  return { monsters, hidden, byGuid };
+}
+
+/**
+ * A monster is treated as a boss — and left out of the wiki — when every
+ * appearance it has is a Boss role *and* none of them is in a story chapter.
+ * That distinguishes the raid/dungeon bosses (Noxyros, Copper Goliath) from the
+ * chapter bosses players farm on the way through the campaign. Monsters that
+ * appear in no level yet are kept: they are unreleased content, not bosses.
+ */
+function isRaidExclusiveBoss(roles) {
+  if (!roles.length) return false;
+  return roles.every((r) => r.endsWith(':Boss')) && !roles.some((r) => r.startsWith('Chapters:'));
+}
+
+/**
+ * Pair the skill assets on the prefab with their localized text. The array order
+ * does not track the skill number (Noxyros has `_Skill_5` at index 2), so the
+ * number comes from the asset name and the index is only a fallback.
+ */
+function monsterSkills(nameKey, stats, quantumIndex, guidIndex, en) {
+  const skills = [];
+
+  (stats.skillGuids ?? []).forEach((guid, index) => {
+    const asset = quantumIndex.get(guid);
+    if (!asset) { warn(`monster ${nameKey} skill ${guid} not found`); return; }
+    const numbered = /_Skill_(\d+)$/.exec(asset.body.m_Name ?? '');
+    const slot = numbered ? Number(numbered[1]) : index + 1;
+    const name = en.get(`Monster/${nameKey}/Skill${slot}Name`);
+    if (!name) return; // undocumented internal skill — nothing to show
+    skills.push({
+      slot,
+      // Skill 3 is the monster's special; 1 and 2 are its basic kit.
+      kind: slot === 3 ? 'Special' : `Skill ${slot}`,
+      name,
+      description: en.get(`Monster/${nameKey}/Skill${slot}Description`) ?? null,
+      icon: queueIcon(asset.body.Icon, guidIndex, 'skills', `${nameKey}-skill-${slot}`.toLowerCase()),
+    });
+  });
+
+  skills.sort((a, b) => a.slot - b.slot);
+
+  const passiveName = en.get(`Monster/${nameKey}/PassiveName`);
+  if (passiveName) {
+    const asset = (stats.passiveGuids ?? []).map((g) => quantumIndex.get(g)).find(Boolean);
+    skills.push({
+      slot: 99,
+      kind: 'Passive',
+      name: passiveName,
+      description: en.get(`Monster/${nameKey}/PassiveDescription`) ?? null,
+      icon: asset ? queueIcon(asset.body.Icon, guidIndex, 'skills', `${nameKey}-passive`.toLowerCase()) : null,
+    });
+  }
+
+  return skills;
+}
+
+// ------------------------------------------------------------------ summons
+
+/**
+ * Summoning is the other way to obtain a monster, and for several of them the
+ * only one: they appear in no combat-level wave at all. Walks each
+ * SummonConfigData -> its SummonPools -> the monsters in each pool, and attaches
+ * the result to the monsters it names.
+ *
+ * Deliberately records *availability only*, never odds. Summon rates are retuned
+ * with every banner and are already shown in-game, so a copy here would be a
+ * maintenance burden that goes stale silently.
+ *
+ * Event banners are skipped entirely: they run for a limited time and then
+ * vanish, and the wiki only carries data that stays true.
+ */
+function extractSummons(en, monstersByGuid, itemsByGuid) {
+  const pools = new Map(); // asset guid -> pool
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Summon'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.summonPool) continue;
+    const b = doc.body;
+    const guid = readMetaGuid(file);
+    if (!guid) continue;
+    pools.set(guid, {
+      name: basename(file, '.asset'),
+      rarity: E.named(E.MonsterRarities, b.PoolRarity ?? 0, 'Common'),
+      monsters: (b._monsterPool?.m_ProbabilityItems ?? [])
+        .filter((p) => p.m_Enabled !== 0)
+        .map((p) => ({ guid: p.m_Value?.guid })),
+    });
+  }
+
+  const banners = [];
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Summon'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.summonConfig) continue;
+    const b = doc.body;
+    if (EXCLUDED_SUMMON_CONFIGS.has(b.ConfigId) || b.IsEvent) continue;
+    const banner = {
+      id: b.ConfigId || basename(file, '.asset'),
+      name: prettify(basename(file, '.asset').replace(/Config$/, '')),
+      costItem: itemsByGuid.get(b.ItemToUse?.guid)?.key ?? null,
+      costItemName: itemsByGuid.get(b.ItemToUse?.guid)?.name ?? null,
+      pools: [],
+    };
+
+    for (const entry of b.SummonPools?.m_ProbabilityItems ?? []) {
+      if (entry.m_Enabled === 0) continue;
+      const pool = pools.get(entry.m_Value?.guid);
+      if (!pool) { warn(`summon config ${banner.id} references an unknown pool`); continue; }
+
+      banner.pools.push({ pool: pool.name, rarity: pool.rarity });
+
+      for (const member of pool.monsters) {
+        const monster = monstersByGuid.get(member.guid);
+        if (!monster) continue; // hidden boss, or a monster this build no longer ships
+        monster.summon.push({
+          banner: banner.id,
+          bannerName: banner.name,
+          pool: pool.name,
+          poolRarity: pool.rarity,
+        });
+      }
+    }
+
+    banners.push(banner);
+  }
+
+  for (const monster of monstersByGuid.values()) {
+    monster.summon.sort((a, b) => a.bannerName.localeCompare(b.bannerName));
+    monster.summonable = monster.summon.length > 0;
+  }
+
+  banners.sort((a, b) => a.name.localeCompare(b.name));
+  return banners;
+}
+
+// ------------------------------------------------------------------ recipes
+
+function extractRecipes(itemsByGuid) {
+  const recipes = [];
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Recipes'), isAsset))) {
+    if (scriptGuid(doc) !== SCRIPT.recipe) continue;
+    const b = doc.body;
+    const relPath = posix(relative(join(SO, 'Recipes'), file)).replace(/\.asset$/, '');
+    if (relPath.startsWith('Unused/')) continue; // experiments, not shipped content
+
+    const output = itemsByGuid.get(b._outputItem?.guid);
+    if (!output) { warn(`recipe ${relPath} has an unresolved output item — skipped`); continue; }
+
+    recipes.push({
+      id: relPath,
+      output: output.key,
+      outputName: output.name,
+      outputAmount: num(b._outputItemAmount) || 1,
+      category: E.named(E.RecipeCategories, b._recipeCategory, 'All'),
+      station: E.named(E.StationTypes, b._stationType, 'None'),
+      stationLevel: num(b._stationLevelRequired),
+      ingredients: (b._ingredients ?? []).map((ing) => {
+        const item = itemsByGuid.get(ing.ItemData?.guid);
+        if (!item) warn(`recipe ${relPath} references unknown ingredient guid ${ing.ItemData?.guid}`);
+        return {
+          item: item?.key ?? null,
+          itemName: item?.name ?? `(missing item ${ing.ItemData?.guid ?? '?'})`,
+          amount: num(ing.Amount),
+        };
+      }),
+    });
+  }
+  recipes.sort((a, b) => a.outputName.localeCompare(b.outputName));
+  return recipes;
+}
+
+// ---------------------------------------------------------------- buildings
+
+/**
+ * The buildings a player can buy, using the game's own test for that:
+ * `!StartsAtLevelZero && BuyBuildingCost != null`
+ * (BuildingBuyCostTitleDataProvider). The ones left out start as ruins on the
+ * player's island and are repaired rather than purchased.
+ *
+ * `BuildingCosts` is indexed by level - 1, so entry 0 is the purchase and the
+ * rest are upgrades.
+ */
+function extractBuildings(guidIndex, en, itemsByGuid) {
+  const buildings = [];
+
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Building'), isAsset))) {
+    const b = doc.body;
+    if (b.NameKey == null || !Array.isArray(b.BuildingCosts)) continue;
+
+    const costs = b.BuildingCosts.map((c, index) => ({
+      level: index + 1,
+      currency: E.named(E.Currencies, c.Currency, 'Coin'),
+      amount: num(c.CurrencyAmount),
+      materials: (c.Materials ?? []).map((m) => {
+        const item = itemsByGuid.get(m.ItemData?.guid);
+        return { item: item?.key ?? null, itemName: item?.name ?? null, amount: num(m.Amount) };
+      }).filter((m) => m.item),
+      buildSeconds: num(c.Hours) * 3600 + num(c.Minutes) * 60 + num(c.Seconds),
+    }));
+
+    if (b.StartsAtLevelZero || !costs.length) continue;
+
+    const key = b._friendlyId || basename(file, '.asset');
+    buildings.push({
+      key,
+      nameKey: b.NameKey,
+      name: en.get(`Building/${b.NameKey}`) ?? prettify(b.NameKey),
+      description: en.get(`Building/${b.NameKey}Description`) ?? null,
+      category: E.named(E.BuildingShopCategories, b.ShopCategory, 'Main'),
+      maxLevel: costs.length,
+      purchase: costs[0],
+      upgrades: costs.slice(1),
+      unlimited: !!b.UnlimitedBuildAmount,
+      icon: queueIcon((b.BuildingIcons ?? [])[0], guidIndex, 'buildings', key),
+    });
+  }
+
+  buildings.sort((a, b) => a.name.localeCompare(b.name));
+  return buildings;
+}
+
+// --------------------------------------------------------------- game modes
+
+/**
+ * Adventure: the six chapters, each level and the enemies in each of its waves.
+ *
+ * Enemy *type* is published here even though monsters no longer carry a role,
+ * because in a wave it is a property of the encounter rather than of the monster
+ * — which is exactly what makes it meaningful in this context.
+ */
+function extractAdventure(guidIndex, en, monstersByKey, generators) {
+  const biomeByChapter = new Map();
+  for (const gen of generators) if (gen.chapter) biomeByChapter.set(gen.chapter, gen.biome);
+
+  const chapters = [];
+  for (const file of walk(join(SO, 'CombatLevels', 'Chapters'), (p) => /Chapter\d+\.asset$/.test(p)).sort()) {
+    const b = readUnityYaml(file)[0]?.body;
+    if (!b?._nameKey) continue;
+    const folder = basename(dirname(file));
+
+    const difficulties = [
+      ['Normal', b.NormalLevels],
+      ['Hard', b.HardLevels],
+      ['Master', b.MasterLevels],
+    ]
+      .map(([difficulty, refs]) => ({
+        difficulty,
+        levels: (refs ?? [])
+          .map((ref, index) => readLevel(guidIndex.get(ref?.guid), index + 1, monstersByKey))
+          .filter(Boolean),
+      }))
+      .filter((d) => d.levels.length);
+
+    chapters.push({
+      key: b._friendlyId || folder.toLowerCase(),
+      name: en.get(`Adventure/${b._nameKey}`) ?? prettify(b._nameKey),
+      biome: biomeByChapter.get(folder) ?? null,
+      difficulties,
+    });
+  }
+  return chapters;
+}
+
+function readLevel(file, index, monstersByKey) {
+  if (!file || !existsSync(file)) return null;
+  const docs = readUnityYaml(file);
+
+  // Document order is not stable — Normal levels put the CombatLevelData first,
+  // Hard levels put the config first — so both are found by content.
+  const data = docs.find((d) => d.body?.LevelConfigRef != null)?.body;
+  if (!data) return null;
+
+  const wanted = data.LevelConfigRef?.Id?.Value != null ? String(data.LevelConfigRef.Id.Value) : null;
+  const config = docs.find((d) => String(d.body?.Identifier?.Guid?.Value ?? '') === wanted)?.body
+    ?? docs.find((d) => Array.isArray(d.body?.Waves))?.body;
+
+  return {
+    index,
+    name: basename(file, '.asset'),
+    cost: num(data.Cost),
+    costCurrency: E.named(E.RechargeableCurrencies, data.CostType, 'Energy'),
+    xp: num(data.Xp),
+    monsterXp: num(data.MonsterXp),
+    coins: [num(data.CoinMinMax?.x), num(data.CoinMinMax?.y)],
+    teamSlots: num(data.ActiveTeamCount) || null,
+    waves: (config?.Waves ?? []).map((wave, i) => ({
+      index: i + 1,
+      enemies: groupEnemies(wave.Enemies ?? [], monstersByKey),
+    })),
+  };
+}
+
+/** Collapse a wave's enemy list into one row per distinct monster/level/type. */
+function groupEnemies(enemies, monstersByKey) {
+  const grouped = new Map();
+  for (const enemy of enemies) {
+    const id = `${enemy.EnemyFriendlyId}|${enemy.Level}|${enemy.Type}`;
+    if (!grouped.has(id)) {
+      const monster = monstersByKey.get(enemy.EnemyFriendlyId);
+      grouped.set(id, {
+        monster: monster ? enemy.EnemyFriendlyId : null,
+        name: monster?.name ?? prettify(enemy.EnemyFriendlyId),
+        icon: monster?.icon ?? null,
+        level: num(enemy.Level),
+        type: E.named(E.EnemyTypes, enemy.Type, 'Basic'),
+        count: 0,
+      });
+    }
+    grouped.get(id).count++;
+  }
+  return [...grouped.values()].sort((a, b) => a.name.localeCompare(b.name) || a.level - b.level);
+}
+
+// -------------------------------------------------------------- cross-links
+
+function link({ items, sets, tables, recipes, monsters }) {
+  const byKey = new Map(items.map((i) => [i.key, i]));
+  const monsterByLootTable = new Map();
+  for (const m of monsters) if (m.lootTable) monsterByLootTable.set(m.lootTable, m);
+
+  for (const table of tables) {
+    const monster = monsterByLootTable.get(table.id);
+    if (monster) {
+      table.monster = monster.key;
+      table.icon = monster.icon;
+    }
+
+    for (const entry of table.entries) {
+      const item = byKey.get(entry.item);
+      if (!item) continue;
+      item.droppedBy.push({
+        table: table.id,
+        kind: table.kind,
+        source: monster ? monster.name : table.sourceName,
+        monster: monster?.key ?? null,
+        icon: table.icon,
+        biomes: table.biomes,
+        chance: entry.chance,
+        amounts: entry.amounts,
+      });
+    }
+  }
+
+  for (const recipe of recipes) {
+    byKey.get(recipe.output)?.craftedBy.push(recipe.id);
+    for (const ing of recipe.ingredients) {
+      const item = byKey.get(ing.item);
+      if (item && !item.usedIn.includes(recipe.id)) item.usedIn.push(recipe.id);
+    }
+  }
+
+  for (const set of sets) {
+    for (const pieceKey of set.pieces) {
+      const item = byKey.get(pieceKey);
+      if (item) item.set = set.key;
+    }
+    if (set.associatedWeapon) {
+      const weapon = byKey.get(set.associatedWeapon);
+      if (weapon && !weapon.set) weapon.set = set.key;
+    }
+  }
+}
+
+/**
+ * The type badges an item carries. Additive, and computed after linking because
+ * "material" is defined by how an item is obtained, not by which folder it sits
+ * in: anything a monster drops or that comes out of a Material recipe counts, on
+ * top of the ones already filed under Materials/.
+ *
+ * There is deliberately no Premium tag — it described where the asset lives, not
+ * what the item is.
+ */
+function tagItems(items, recipes) {
+  const fromMaterialRecipe = new Set(
+    recipes.filter((r) => r.category === 'Material').map((r) => r.output),
+  );
+
+  for (const item of items) {
+    const tags = [];
+    if (item.category === 'Weapon') tags.push('Weapon');
+    if (item.category === 'Armor') tags.push('Armor');
+    if (item.category === 'Tool') tags.push('Tool');
+
+    const isMaterial = item.category === 'Material'
+      || fromMaterialRecipe.has(item.key)
+      || item.droppedBy.some((d) => d.monster);
+    if (isMaterial && !tags.includes('Material')) tags.push('Material');
+
+    item.tags = tags;
+  }
+}
+
+/**
+ * Items nothing in the project points at — no craft, drop, shop product,
+ * building cost, quest reward or tutorial step. They exist as assets but are
+ * unreachable in game, so the wiki would be advertising content players cannot
+ * get.
+ *
+ * Two kinds of reference have to be checked: most systems store an asset guid,
+ * but shop products are serialized as a JSON blob that names items by
+ * `_friendlyId`, so a guid-only scan would wrongly condemn everything sold.
+ */
+function findUnreferencedItems(items, itemFileByKey) {
+  const files = REFERENCE_ROOTS
+    .flatMap((dir) => walk(join(ASSETS, dir), (p) => /\.(asset|prefab|unity|json)$/.test(p)))
+    .filter((p) => !NOT_EVIDENCE.some((r) => r.test(p)));
+
+  const guids = new Set();
+  for (const file of files) {
+    for (const m of readFileSync(file, 'utf8').matchAll(/guid: ([0-9a-f]{32})/g)) guids.add(m[1]);
+  }
+
+  const guidByKey = new Map();
+  for (const [key, file] of itemFileByKey) {
+    const guid = readMetaGuid(file);
+    if (guid) guidByKey.set(key, guid);
+  }
+
+  let candidates = items.filter((i) => !guids.has(guidByKey.get(i.key)));
+
+  // Second pass, only for what the guid scan did not vouch for: look for the
+  // friendly id as a whole word, ignoring the item's own asset.
+  candidates = sweepByFriendlyId(candidates, files, itemFileByKey);
+  if (candidates.length) {
+    const code = REFERENCE_ROOTS.flatMap((dir) => walk(join(ASSETS, dir), (p) => p.endsWith('.cs')));
+    candidates = sweepByFriendlyId(candidates, code, itemFileByKey);
+  }
+
+  return new Set(candidates.map((i) => i.key));
+}
+
+/** Drops any candidate whose friendly id appears in one of `files`. */
+function sweepByFriendlyId(candidates, files, itemFileByKey) {
+  let remaining = candidates;
+  for (const file of files) {
+    if (!remaining.length) break;
+    const text = readFileSync(file, 'utf8');
+    remaining = remaining.filter((item) => {
+      if (itemFileByKey.get(item.key) === file) return true; // its own asset proves nothing
+      return !new RegExp(`(?<![\\w-])${escapeRe(item.key)}(?![\\w-])`).test(text);
+    });
+  }
+  return remaining;
+}
+
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/**
+ * Remove excluded items and every reference to them, so the site never links to
+ * something that is not in the payload.
+ */
+function pruneExcludedItems({ items, sets, tables, recipes, unreferenced }) {
+  const dropped = new Set([
+    ...items.filter((i) => EXCLUDED_ITEM_CATEGORIES.has(i.category)).map((i) => i.key),
+    ...unreferenced,
+  ]);
+  if (!dropped.size) return { items, sets, tables, recipes, dropped };
+
+  const kept = items.filter((i) => !dropped.has(i.key));
+
+  for (const table of tables) {
+    const before = table.entries.length;
+    table.entries = table.entries.filter((e) => !dropped.has(e.item));
+    if (table.entries.length !== before) warn(`loot table ${table.id} dropped ${before - table.entries.length} excluded item entr(ies)`);
+  }
+
+  const keptRecipes = recipes.filter((r) => {
+    if (dropped.has(r.output)) return false;
+    if (r.ingredients.some((i) => dropped.has(i.item))) {
+      warn(`recipe ${r.id} needs an excluded item — hidden`);
+      return false;
+    }
+    return true;
+  });
+
+  const keptSets = sets.filter((s) => !s.pieces.every((p) => dropped.has(p)));
+  for (const set of keptSets) {
+    set.pieces = set.pieces.filter((p) => !dropped.has(p));
+    if (dropped.has(set.associatedWeapon)) set.associatedWeapon = null;
+  }
+
+  // Cross-links were built before pruning, so strip anything pointing at a
+  // dropped item.
+  for (const item of kept) {
+    item.usedIn = item.usedIn.filter((id) => keptRecipes.some((r) => r.id === id));
+    item.craftedBy = item.craftedBy.filter((id) => keptRecipes.some((r) => r.id === id));
+  }
+
+  return { items: kept, sets: keptSets, tables, recipes: keptRecipes, dropped };
+}
+
+// --------------------------------------------------------------------- main
+
+function main() {
+  const started = Date.now();
+  console.log('Indexing asset guids…');
+  const guidIndex = buildGuidIndex();
+  const quantumIndex = buildQuantumIndex();
+  const prototypeIndex = buildPrototypeIndex(walk(ASSETS, (p) => p.endsWith('.qprototype')), guidIndex);
+  console.log(`  ${guidIndex.size} unity guids, ${quantumIndex.size} quantum assets, ${prototypeIndex.size} entity prototypes`);
+
+  console.log('Reading English localization…');
+  const en = loadEnglish();
+  console.log(`  ${en.size} terms`);
+
+  const elementIcons = extractElementIcons();
+
+  console.log('Extracting items…');
+  let { items, byGuid: itemsByGuid, fileByKey } = extractItems(guidIndex, en);
+  let sets = extractSets(en, itemsByGuid);
+  console.log(`  ${items.length} items, ${sets.length} sets`);
+
+  console.log('Checking which items the project actually uses…');
+  const unreferenced = findUnreferencedItems(items, fileByKey);
+  console.log(`  ${unreferenced.size} referenced nowhere`);
+
+  console.log('Scanning combat levels…');
+  const { appearances, generators } = scanCombatLevels();
+  const resourcePrefabs = scanResourcePrefabs(guidIndex);
+  const spawns = scanResourceSpawns(generators, prototypeIndex, resourcePrefabs);
+  console.log(`  ${appearances.size} monsters placed, ${generators.length} resource generators, ${resourcePrefabs.size} harvestable tables (${spawns.size} biome-mapped)`);
+
+  console.log('Extracting loot tables…');
+  let { tables, byQuantumGuid } = extractLootTables(guidIndex, en, itemsByGuid, spawns, resourcePrefabs);
+  console.log(`  ${tables.length} loot tables`);
+
+  console.log('Extracting monsters…');
+  const { monsters, hidden, byGuid: monstersByGuid } = extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons });
+  console.log(`  ${monsters.length} monsters (${hidden.length} boss hidden: ${hidden.join(', ') || 'none'})`);
+
+  const banners = extractSummons(en, monstersByGuid, itemsByGuid);
+  const summonable = monsters.filter((m) => m.summonable).length;
+  console.log(`  ${banners.length} summon banners, ${summonable} summonable monsters`);
+
+  console.log('Extracting recipes…');
+  let recipes = extractRecipes(itemsByGuid);
+  console.log(`  ${recipes.length} recipes`);
+
+  console.log('Extracting buildings…');
+  const buildings = extractBuildings(guidIndex, en, itemsByGuid);
+  console.log(`  ${buildings.length} purchasable buildings`);
+
+  console.log('Extracting game modes…');
+  const monstersByKey = new Map(monsters.map((m) => [m.key, m]));
+  const adventure = extractAdventure(guidIndex, en, monstersByKey, generators);
+  const levelCount = adventure.reduce((n, c) => n + c.difficulties.reduce((m, d) => m + d.levels.length, 0), 0);
+  const waveCount = adventure.reduce((n, c) => n + c.difficulties.reduce((m, d) => m + d.levels.reduce((w, l) => w + l.waves.length, 0), 0), 0);
+  console.log(`  ${adventure.length} chapters, ${levelCount} levels, ${waveCount} waves`);
+
+  const gamemodes = [{
+    key: 'adventure',
+    name: en.get('GameMode/Adventure') ?? 'Adventure',
+    icon: adventureIcon(),
+    chapters: adventure,
+  }];
+
+  link({ items, sets, tables, recipes, monsters });
+  tagItems(items, recipes);
+  const pruned = pruneExcludedItems({ items, sets, tables, recipes, unreferenced });
+  ({ items, sets, tables, recipes } = pruned);
+  console.log(`  ${pruned.dropped.size} items removed (${[...EXCLUDED_ITEM_CATEGORIES].join(', ')} + unreferenced)`);
+
+  mkdirSync(DATA, { recursive: true });
+  mkdirSync(ICONS, { recursive: true });
+
+  const meta = {
+    generatedAt: new Date().toISOString(),
+    counts: {
+      items: items.length,
+      sets: sets.length,
+      lootTables: tables.length,
+      monsters: monsters.length,
+      recipes: recipes.length,
+      summonBanners: banners.length,
+      buildings: buildings.length,
+      chapters: adventure.length,
+      levels: levelCount,
+    },
+    summonBanners: banners,
+    rarities: E.ItemRarities,
+    monsterRarities: E.MonsterRarities,
+    rarityColors: { item: E.ItemRarityColors, monster: E.MonsterRarityColors },
+    elements: E.Elements,
+    elementIcons,
+    hiddenBosses: hidden,
+    unreferencedItems: [...unreferenced].sort(),
+    warnings,
+  };
+
+  const write = (name, value) => {
+    const file = join(DATA, name);
+    writeFileSync(file, JSON.stringify(value));
+    return statSync(file).size;
+  };
+
+  let bytes = 0;
+  bytes += write('items.json', items);
+  bytes += write('monsters.json', monsters);
+  bytes += write('loot.json', tables);
+  bytes += write('recipes.json', recipes);
+  bytes += write('sets.json', sets);
+  bytes += write('buildings.json', buildings);
+  bytes += write('gamemodes.json', gamemodes);
+
+  const siteAssets = copySiteAssets();
+  console.log(`  ${siteAssets.length} site assets (${siteAssets.join(', ')})`);
+
+  console.log('Copying icons…');
+  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, meta]);
+  writeIcons();
+  console.log(`  ${iconJobs.size} icons (${orphans} unreferenced dropped)`);
+
+  // Written last so it carries the warnings raised while copying icons.
+  bytes += write('meta.json', meta);
+
+  console.log(`\nRead ${posix(PROJECT)}`);
+  console.log(`Wrote ${(bytes / 1024).toFixed(0)} KB of JSON to ${posix(relative(SITE, DATA))}`);
+  if (warnings.length) {
+    console.log(`\n${warnings.length} warning(s):`);
+    for (const w of warnings.slice(0, 40)) console.log(`  - ${w}`);
+    if (warnings.length > 40) console.log(`  … ${warnings.length - 40} more (see data/meta.json)`);
+  }
+  console.log(`\nDone in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+}
+
+main();

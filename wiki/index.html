@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pixel Chronicles Wiki</title>
+<meta name="description" content="Items, monsters, loot tables and crafting recipes for Pixel Chronicles.">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2314161c'/><rect x='3' y='3' width='4' height='4' fill='%23f0b32d'/><rect x='9' y='9' width='4' height='4' fill='%236fcf6f'/></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <a class="brand" href="#/">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <span>Pixel&nbsp;Chronicles<em>wiki</em></span>
+  </a>
+
+  <div class="search">
+    <input id="search" type="search" placeholder="Search items, monsters, recipes…" autocomplete="off"
+           spellcheck="false" aria-label="Search" aria-controls="suggestions" role="combobox" aria-expanded="false">
+    <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
+  </div>
+
+  <nav class="tabs" id="tabs">
+    <a href="#/items">Items</a>
+    <a href="#/monsters">Monsters</a>
+    <a href="#/loot">Loot</a>
+    <a href="#/recipes">Recipes</a>
+    <a href="#/sets">Sets</a>
+    <a href="#/buildings">Buildings</a>
+    <a href="#/modes">Modes</a>
+    <a class="offsite" href="../">moonforge-games.com ↗</a>
+  </nav>
+
+  <button id="theme" class="icon-btn" type="button" aria-label="Toggle colour scheme" title="Toggle colour scheme"></button>
+</header>
+
+<main id="view" aria-live="polite">
+  <p class="loading">Loading game data…</p>
+</main>
+
+<footer class="footer">
+  <span id="footer-meta"></span>
+  <span class="sep">·</span>
+  <span>Generated from the game project with <code>wiki/tools/extract.mjs</code></span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+# Throwaway artefacts; rebuild with `node tools/bundle.mjs` / `node tools/package.mjs`.
+preview.html
+preview-home.html
+moonforge-site.zip
+
+# Local scratch
+node_modules/
+.DS_Store
+Thumbs.db
