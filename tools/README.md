@@ -157,6 +157,24 @@ unpacks into a single flat directory of files literally named
 > Windows is case-insensitive but GitHub Pages is not — the generator clears
 > `wiki/icons/` before each run precisely to keep the two in sync.
 
+## Cache busting
+
+`extract.mjs` stamps `?v=<hash>` on the wiki's `app.js` and `styles.css`, hashed from
+those two files plus every data payload.
+
+This is not cosmetic. The code and the data it reads are separate downloads, so a
+browser can pair a cached `app.js` with freshly published JSON. When the shape of
+the data changes, that pairing throws — and only the page using the changed shape
+breaks, which looks like a tab that refuses to open while the rest of the wiki works.
+It happened for real when Game modes moved from `chapters` to `groups`.
+
+The hash deliberately ignores `generatedAt` in `meta.json`, so a regeneration that
+changed nothing does not expire every visitor's cache.
+
+`route()` also has an error boundary: a render that throws now shows a message
+telling the reader to hard-reload, instead of silently leaving the previous page up
+with the real error only in the console.
+
 ## What is included
 
 Scope is deliberately narrow for now. Left out, each easy to switch back on:

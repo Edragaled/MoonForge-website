@@ -16,6 +16,7 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, readdirSync, statSync, rmSync, existsSync } from 'node:fs';
 import { join, relative, dirname, basename, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 import { readUnityYaml, parseUnityYaml, fp } from './lib/unity-yaml.mjs';
 import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID } from './lib/quantum-guid.mjs';
 import { resolveSprite } from './lib/sprite.mjs';
@@ -232,6 +233,48 @@ function queueIconFile(src, subdir, name) {
   const rel = `${subdir}/${name}${src.slice(src.lastIndexOf('.')).toLowerCase()}`;
   iconJobs.set(rel, src);
   return `icons/${rel}`;
+}
+
+/**
+ * Stamp `?v=<hash>` on the wiki's script and stylesheet.
+ *
+ * The data payloads and the code that reads them are separate downloads, so a
+ * browser can happily pair a cached `app.js` with freshly published JSON. When the
+ * shape of the data changes that combination throws, and only the page that uses
+ * the changed shape breaks — a tab that silently refuses to open. Giving the code
+ * a URL that changes whenever the code or the data changes makes that pairing
+ * impossible.
+ */
+function stampAssets() {
+  const page = join(OUT, 'index.html');
+  if (!existsSync(page)) { warn('wiki/index.html missing — assets not stamped'); return null; }
+
+  const hash = createHash('sha1');
+  for (const file of ['app.js', 'styles.css']) hash.update(readFileSync(join(OUT, file)));
+  for (const file of readdirSync(DATA).sort()) {
+    if (file === 'meta.json') {
+      // `generatedAt` moves every run; hashing it would expire every visitor's
+      // cache on a regeneration that changed nothing.
+      const { generatedAt, ...rest } = JSON.parse(readFileSync(join(DATA, file), 'utf8'));
+      hash.update(JSON.stringify(rest));
+      continue;
+    }
+    hash.update(readFileSync(join(DATA, file)));
+  }
+  const version = hash.digest('hex').slice(0, 10);
+
+  const before = readFileSync(page, 'utf8');
+  const after = before
+    .replace(/(href=")styles\.css(?:\?v=[^"]*)?(")/, `$1styles.css?v=${version}$2`)
+    .replace(/(src=")app\.js(?:\?v=[^"]*)?(")/, `$1app.js?v=${version}$2`);
+
+  if (!after.includes(`styles.css?v=${version}`) || !after.includes(`app.js?v=${version}`)) {
+    warn('could not stamp wiki/index.html — its script or stylesheet tag no longer matches');
+    return null;
+  }
+
+  if (after !== before) writeFileSync(page, after);
+  return version;
 }
 
 /**
@@ -1610,6 +1653,10 @@ function main() {
 
   // Written last so it carries the warnings raised while copying icons.
   bytes += write('meta.json', meta);
+
+  // After every payload exists, so the hash covers the data too.
+  const version = stampAssets();
+  if (version) console.log(`  assets stamped ?v=${version}`);
 
   console.log(`\nRead ${posix(PROJECT)}`);
   console.log(`Wrote ${(bytes / 1024).toFixed(0)} KB of JSON to ${posix(relative(SITE, DATA))}`);

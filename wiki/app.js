@@ -1107,21 +1107,33 @@ function route() {
   const key = rest.join('/');
 
   let content;
-  switch (section) {
-    case undefined: content = renderHome(); break;
-    case 'items': content = renderItems(params); break;
-    case 'item': content = renderItemDetail(key); break;
-    case 'monsters': content = renderMonsters(params); break;
-    case 'monster': content = renderMonsterDetail(key); break;
-    case 'loot': content = key ? renderLootDetail(key) : renderLootList(params); break;
-    case 'recipes': content = renderRecipes(params); break;
-    case 'recipe': content = renderRecipeDetail(key); break;
-    case 'sets': content = renderSets(); break;
-    case 'buildings': content = renderBuildings(params); break;
-    case 'modes': content = renderModes(); break;
-    case 'mode': content = renderMode(key); break;
-    case 'chapter': content = renderChapter(key, params); break;
-    default: content = notFound('page', section);
+  try {
+    switch (section) {
+      case undefined: content = renderHome(); break;
+      case 'items': content = renderItems(params); break;
+      case 'item': content = renderItemDetail(key); break;
+      case 'monsters': content = renderMonsters(params); break;
+      case 'monster': content = renderMonsterDetail(key); break;
+      case 'loot': content = key ? renderLootDetail(key) : renderLootList(params); break;
+      case 'recipes': content = renderRecipes(params); break;
+      case 'recipe': content = renderRecipeDetail(key); break;
+      case 'sets': content = renderSets(); break;
+      case 'buildings': content = renderBuildings(params); break;
+      case 'modes': content = renderModes(); break;
+      case 'mode': content = renderMode(key); break;
+      case 'chapter': content = renderChapter(key, params); break;
+      default: content = notFound('page', section);
+    }
+  } catch (err) {
+    // Without this, a render error left the previous page on screen and the only
+    // clue was in the console — a tab that simply refused to open. The usual
+    // cause is a browser holding an old app.js against freshly published data.
+    console.error(err);
+    content = el(`<div class="warn"><b>This page failed to load.</b>
+      <p style="margin:6px 0 0">Your browser may be holding an older version of the wiki.
+      Reload with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac).</p>
+      <p style="margin:6px 0 0">If it keeps happening, this is a bug worth reporting:
+      <code>${esc(String(err && err.message ? err.message : err))}</code></p></div>`);
   }
 
   view.replaceChildren(content);

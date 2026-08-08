@@ -63,14 +63,16 @@ function main() {
   // `</script>` inside JSON would close the tag early.
   const embed = (value) => JSON.stringify(value).replace(/<\//g, '<\\/');
 
+  // The tags carry a `?v=<hash>` cache buster stamped by extract.mjs, so match
+  // them loosely rather than by exact string.
   const bundled = html
-    .replace('<link rel="stylesheet" href="styles.css">', `<style>\n${css}\n</style>`)
+    .replace(/<link rel="stylesheet" href="styles\.css(?:\?[^"]*)?">/, `<style>\n${css}\n</style>`)
     .replace(
-      '<script src="app.js"></script>',
+      /<script src="app\.js(?:\?[^"]*)?"><\/script>/,
       `<script>window.__WIKI_DATA__=${embed(payloads)};window.__WIKI_ICONS__=${embed(icons)};</script>\n<script>\n${js}\n</script>`,
     );
 
-  if (bundled.includes('href="styles.css"') || bundled.includes('src="app.js"')) {
+  if (/href="styles\.css/.test(bundled) || /src="app\.js/.test(bundled)) {
     console.error('index.html no longer matches the tags bundle.mjs replaces — update this script.');
     process.exit(1);
   }
