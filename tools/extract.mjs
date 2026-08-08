@@ -20,6 +20,7 @@ import { createHash } from 'node:crypto';
 import { readUnityYaml, parseUnityYaml, fp } from './lib/unity-yaml.mjs';
 import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID } from './lib/quantum-guid.mjs';
 import { resolveSprite } from './lib/sprite.mjs';
+import { readTalentValues, fillTalentText, romanNumeral } from './lib/talents.mjs';
 import * as E from './lib/enums.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -61,6 +62,7 @@ const SITE_ASSETS = join(SITE, 'assets');
 const MONSTER_ENTITIES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'Monsters');
 const WORLD_RESOURCES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'WorldObjects', 'WorldResources');
 const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements');
+const TALENT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Talents');
 
 // The biome folders under LootTables/Monsters and the generator name prefixes
 // disagree on one name; the folder spelling is what the wiki shows.
@@ -1087,6 +1089,54 @@ function extractBuildings(guidIndex, en, itemsByGuid) {
   return buildings;
 }
 
+// ------------------------------------------------------------------ talents
+
+/**
+ * Talents: the asset holds a name key and an icon, the numbers live in the
+ * matching C# script, and the localized text has `{[VALUE_1]}` placeholders. All
+ * three are joined here so each level reads as a finished sentence.
+ */
+function extractTalents(guidIndex, en) {
+  const scripts = walk(TALENT_SCRIPTS, (p) => /Talent\.cs$/.test(p));
+  const values = readTalentValues(scripts, warn);
+
+  const talents = [];
+  for (const { file, doc } of loadDocs(walk(join(SO, 'Talents'), isAsset))) {
+    const b = doc.body;
+    if (!b?._nameKey) continue;
+
+    const script = basename(file, '.asset');
+    const parsed = values.get(script);
+    if (!parsed) { warn(`talent ${script} has no resolved level values — skipped`); continue; }
+
+    const key = (b._friendlyId || b._nameKey).replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase();
+    const nameTemplate = en.get(`Talent/${b._nameKey}`);
+    const descTemplate = en.get(`Talent/${b._nameKey}Description`);
+    if (!descTemplate) warn(`talent ${script} has no description string`);
+
+    const levels = [...parsed.levels.keys()].sort((a, b2) => a - b2).map((level) => ({
+      level,
+      roman: romanNumeral(level),
+      description: fillTalentText(descTemplate, parsed.levels.get(level), level),
+    }));
+
+    talents.push({
+      key,
+      nameKey: b._nameKey,
+      // The in-game name carries its rank, e.g. "Berserk III"; the wiki lists the
+      // talent once and shows the ranks in a table, so the rank marker is dropped.
+      name: fillTalentText(nameTemplate, {}, 0)?.replace(/\s*\b[IVX]+\b\s*$/, '').trim()
+        || prettify(b._nameKey),
+      maxLevel: parsed.maxLevel,
+      icon: queueIcon(b.Icon, guidIndex, 'talents', key),
+      levels,
+    });
+  }
+
+  talents.sort((a, b) => a.name.localeCompare(b.name));
+  return talents;
+}
+
 // --------------------------------------------------------------- game modes
 
 /**
@@ -1575,6 +1625,10 @@ function main() {
   let recipes = extractRecipes(itemsByGuid);
   console.log(`  ${recipes.length} recipes`);
 
+  console.log('Extracting talents…');
+  const talents = extractTalents(guidIndex, en);
+  console.log(`  ${talents.length} talents, ${talents.reduce((n, t) => n + t.levels.length, 0)} ranks`);
+
   console.log('Extracting buildings…');
   const buildings = extractBuildings(guidIndex, en, itemsByGuid);
   console.log(`  ${buildings.length} purchasable buildings`);
@@ -1613,6 +1667,7 @@ function main() {
       recipes: recipes.length,
       summonBanners: banners.length,
       buildings: buildings.length,
+      talents: talents.length,
       chapters: gamemodes.find((m) => m.key === 'adventure')?.groups.length ?? 0,
       gameModes: gamemodes.length,
       levels: levelCount,
@@ -1642,12 +1697,13 @@ function main() {
   bytes += write('sets.json', sets);
   bytes += write('buildings.json', buildings);
   bytes += write('gamemodes.json', gamemodes);
+  bytes += write('talents.json', talents);
 
   const siteAssets = copySiteAssets();
   console.log(`  ${siteAssets.length} site assets (${siteAssets.join(', ')})`);
 
   console.log('Copying icons…');
-  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, meta]);
+  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, talents, meta]);
   writeIcons();
   console.log(`  ${iconJobs.size} icons (${orphans} unreferenced dropped)`);
 

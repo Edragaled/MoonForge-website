@@ -461,6 +461,14 @@ td .with-icon > .sprite { height: 22px; max-width: 22px; flex: none; }
 .skill-kind.passive { color: var(--passive); }
 .skill p { margin: 6px 0 0; font-size: 13px; color: var(--text-dim); }
 
+/* Talent ranks: roman numerals read as a column of labels, not as figures. */
+td.rank {
+  font: 700 12px/1 var(--mono);
+  color: var(--accent);
+  width: 3.5em;
+  letter-spacing: .06em;
+}
+
 .ingredients { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .ingredients li { display: flex; align-items: center; gap: 9px; }
 .ingredients li > img { width: 26px; height: 26px; object-fit: contain; flex: none; }

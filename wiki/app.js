@@ -3,7 +3,7 @@
 
 'use strict';
 
-const DB = { items: [], monsters: [], loot: [], recipes: [], sets: [], buildings: [], gamemodes: [], meta: null };
+const DB = { items: [], monsters: [], loot: [], recipes: [], sets: [], buildings: [], gamemodes: [], talents: [], meta: null };
 const IX = {
   item: new Map(), monster: new Map(), loot: new Map(), recipe: new Map(),
   set: new Map(), building: new Map(), mode: new Map(), chapter: new Map(),
@@ -186,6 +186,7 @@ function renderHome() {
       <a class="stat-tile" href="#/loot"><b>${nf(dropCount)}</b><span>Drop entries</span></a>
       <a class="stat-tile" href="#/recipes"><b>${nf(c.recipes)}</b><span>Recipes</span></a>
       <a class="stat-tile" href="#/buildings"><b>${nf(c.buildings)}</b><span>Buildings</span></a>
+      <a class="stat-tile" href="#/talents"><b>${nf(c.talents)}</b><span>Talents</span></a>
       <a class="stat-tile" href="#/modes"><b>${nf(c.levels)}</b><span>Adventure levels</span></a>
     </div>
 
@@ -847,6 +848,32 @@ function renderBuildings(params) {
   return frag;
 }
 
+/* ------------------------------------------------------------------ talents */
+
+function renderTalents() {
+  const frag = el(`<div>
+    <h1>Talents</h1>
+    <p class="subtitle">${nf(DB.talents.length)} talents. Every rank replaces the one before it — the values are not
+      cumulative.</p>
+    <div class="panels" id="list"></div>
+  </div>`);
+
+  frag.getElementById('list').append(...DB.talents.map((t) => el(`<section class="panel">
+    <div class="skill-head" style="margin-bottom:10px">
+      <span class="thumb" style="width:44px;height:44px;flex:none">${iconImg(t.icon, t.name)}</span>
+      <span>
+        <span class="skill-name" style="font-size:16px">${esc(t.name)}</span>
+        <span class="skill-kind">${nf(t.maxLevel)} ranks</span>
+      </span>
+    </div>
+    <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Effect</th></tr></thead><tbody>
+      ${t.levels.map((l) => `<tr><td class="rank">${esc(l.roman)}</td><td>${esc(l.description ?? '—')}</td></tr>`).join('')}
+    </tbody></table></div>
+  </section>`)));
+
+  return frag;
+}
+
 /* --------------------------------------------------------------- game modes */
 
 const modeLevelCount = (m) => m.groups.reduce((n, g) => n + g.sets.reduce((k, s) => k + s.levels.length, 0), 0);
@@ -1026,6 +1053,7 @@ function searchAll(query) {
   for (const s of DB.sets) push('Set', s.name, `#/sets`, null, s.key);
   for (const t of DB.loot) push('Loot', t.sourceName, `#/loot/${slug(t.id)}`, t.icon, t.id);
   for (const b of DB.buildings) push('Building', b.name, `#/buildings`, b.icon, b.key);
+  for (const t of DB.talents) push('Talent', t.name, `#/talents`, t.icon, t.key);
   for (const m of DB.gamemodes) {
     push('Mode', m.name, `#/mode/${slug(m.key)}`, m.icon, m.key);
     for (const g of m.groups) push(m.key === 'adventure' ? 'Chapter' : m.name, g.name, `#/chapter/${slug(g.key)}`, null, g.key);
@@ -1119,6 +1147,7 @@ function route() {
       case 'recipe': content = renderRecipeDetail(key); break;
       case 'sets': content = renderSets(); break;
       case 'buildings': content = renderBuildings(params); break;
+      case 'talents': content = renderTalents(); break;
       case 'modes': content = renderModes(); break;
       case 'mode': content = renderMode(key); break;
       case 'chapter': content = renderChapter(key, params); break;
@@ -1165,7 +1194,7 @@ window.addEventListener('hashchange', route);
 /* --------------------------------------------------------------------- boot */
 
 async function boot() {
-  const names = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'meta'];
+  const names = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'talents', 'meta'];
   try {
     // The preview bundle inlines the payloads, so it can run from file:// where
     // fetch is blocked.
@@ -1198,7 +1227,7 @@ async function boot() {
 
 /** Populate DB and the lookup indexes from the loaded payloads. */
 function install(payloads) {
-  [DB.items, DB.monsters, DB.loot, DB.recipes, DB.sets, DB.buildings, DB.gamemodes, DB.meta] = payloads;
+  [DB.items, DB.monsters, DB.loot, DB.recipes, DB.sets, DB.buildings, DB.gamemodes, DB.talents, DB.meta] = payloads;
 
   for (const i of DB.items) IX.item.set(i.key, i);
   for (const m of DB.monsters) IX.monster.set(m.key, m);

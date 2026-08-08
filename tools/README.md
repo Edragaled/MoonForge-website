@@ -312,6 +312,26 @@ which is why a stored `Identifier` always wins over a computed hash.
 `AssetGuid.ReservedBits` lives in `Quantum.Engine.dll`; its value
 (`0x4000000000000000`) was recovered by diffing computed against stored guids.
 
+## Talent numbers come out of C#
+
+Talents are the one section whose values are not in the project's data. A talent
+asset holds only `_nameKey` and an icon; the per-level numbers are `level switch`
+expressions in `QuantumUser/Simulation/AssetTypes/Talents/*Talent.cs`, and the
+localized string has `{[VALUE_1]}` placeholders the client fills in at runtime.
+
+`lib/talents.mjs` reads the getters, matches them to placeholders through
+`GetLocalizationParams`, and evaluates arms that are either a plain integer or a
+sum of `FP` constants (`FP._0_20 + FP._0_10 + FP._0_05` → 0.35 → 35%). Anything
+else is reported as a warning and the talent is skipped rather than guessed — a
+wrong number in a wiki is worse than a missing one. Some switches carry a
+defensive `0 =>` arm; talents start at rank 1, so level 0 is dropped.
+
+This makes talents the section most likely to go stale quietly: rebalancing them
+is a code change, so re-run the extractor after touching those scripts.
+
+`Talent/Shatter` exists in localization with no matching asset, so it is not
+listed.
+
 ## Known data gaps
 
 `wiki/data/meta.json` carries a `warnings` array from the last run. Currently one:
