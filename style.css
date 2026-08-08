@@ -164,6 +164,24 @@ h3 { font-size: 17px; margin: 0 0 8px; }
 .store.soon { opacity: .55; cursor: default; }
 .store.soon:hover { border-color: var(--line); background: var(--bg-raised); }
 
+/* Discord in its own brand colour, so the live channel is the obvious thing to
+   click when someone needs help. */
+.store.discord { background: #5865f2; border-color: #5865f2; color: #fff; }
+.store.discord small { color: rgb(255 255 255 / .78); }
+.store.discord:hover { background: #4752c4; border-color: #4752c4; }
+
+.topbar nav a.discord {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #fff;
+  background: #5865f2;
+}
+.topbar nav a.discord:hover { background: #4752c4; color: #fff; }
+.topbar nav a.discord svg { width: 17px; height: 17px; }
+
+.footer a.discord { color: #98a0f8; }
+
 /* ------------------------------------------------------------------ sections */
 
 .section { padding: clamp(36px, 6vw, 64px) 0; }

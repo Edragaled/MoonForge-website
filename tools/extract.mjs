@@ -75,6 +75,8 @@ const SCRIPT = {
   recipe: 'f7bceb4aaea476a4ca89ac8bcf798625',
   summonConfig: 'f579e6d1ec2b42309f2fef2a1855450c',
   summonPool: '55e5fae9d9e73c749a60a088d18243b4',
+  dungeon: 'd36810cf836445608105330ffc775ee6',
+  raid: '9bce7cfa2dd84638974ce6c53ab9cbb5',
 };
 
 // Item categories kept out of the wiki for now. Accessories are procedurally
@@ -294,13 +296,6 @@ function copySiteAssets() {
     copied.push(name);
   }
   return copied;
-}
-
-function adventureIcon() {
-  const file = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Destinations', 'AdventureIcon.png');
-  if (existsSync(file)) return queueIconFile(file, 'gamemodes', 'adventure');
-  warn('AdventureIcon.png not found');
-  return null;
 }
 
 /** Element name -> icon path. There is no artwork for Neutral. */
@@ -768,6 +763,9 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
   const monsters = [];
   const hidden = [];
   const byGuid = new Map();
+  // Name and icon for every monster including the hidden bosses, so a raid or
+  // dungeon wave can still show its boss even though it has no wiki page.
+  const displayByKey = new Map();
 
   for (const { file, doc } of loadDocs(walk(join(SO, 'Monsters'), isAsset))) {
     if (scriptGuid(doc) !== SCRIPT.monster) continue;
@@ -785,6 +783,8 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
     // same monster is Basic in one stage and Elite in another, so the label says
     // something about the encounter, not about the monster.
     const roles = [...(appearances.get(key) ?? [])].sort();
+    const displayName = en.get(`Monster/${nameKey}`) ?? prettify(nameKey);
+    displayByKey.set(key, { name: displayName, icon: queueIcon(b.Icon, guidIndex, 'monsters', key) });
     if (isRaidExclusiveBoss(roles)) { hidden.push(key); continue; }
 
     const lootTable = stats.lootTableGuid ? lootByQuantumGuid.get(stats.lootTableGuid) : null;
@@ -797,7 +797,7 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
       id: b._id,
       key,
       nameKey,
-      name: en.get(`Monster/${nameKey}`) ?? prettify(nameKey),
+      name: displayName,
       rarity: E.named(E.MonsterRarities, b.Rarity, 'Common'),
       rarityIndex: Number(b.Rarity ?? 0),
       element,
@@ -813,7 +813,7 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
         weightedStats: stats.weightedStats ?? null,
       },
       skills: monsterSkills(nameKey, stats, quantumIndex, guidIndex, en),
-      icon: queueIcon(b.Icon, guidIndex, 'monsters', key),
+      icon: displayByKey.get(key).icon,
       lootTable: lootTable?.id ?? null,
       // filled in by extractSummons()
       summon: [],
@@ -826,7 +826,7 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
   }
 
   monsters.sort((a, b) => a.name.localeCompare(b.name));
-  return { monsters, hidden, byGuid };
+  return { monsters, hidden, byGuid, displayByKey };
 }
 
 /**
@@ -1047,13 +1047,74 @@ function extractBuildings(guidIndex, en, itemsByGuid) {
 // --------------------------------------------------------------- game modes
 
 /**
- * Adventure: the six chapters, each level and the enemies in each of its waves.
+ * The three playable modes, shaped identically so the site renders them from one
+ * template:
  *
- * Enemy *type* is published here even though monsters no longer carry a role,
- * because in a wave it is a property of the encounter rather than of the monster
- * — which is exactly what makes it meaningful in this context.
+ *   mode -> groups (a chapter, a dungeon, a raid) -> sets (Normal/Hard, or tiers)
+ *        -> levels -> waves -> enemies
+ *
+ * Only released content is published: Antique Ruins is the one dungeon with a
+ * proper `DungeonData` asset listing its tiers, and Shadows Citadel the one raid.
+ * The other dungeon assets sit loose in the folder with no definition, so they are
+ * work in progress and are skipped by construction rather than by a name list.
  */
-function extractAdventure(guidIndex, en, monstersByKey, generators) {
+function extractGameModes(guidIndex, en, monstersByKey, generators, itemsByGuid) {
+  const modes = [];
+
+  const adventure = extractAdventure(guidIndex, en, monstersByKey, generators, itemsByGuid);
+  if (adventure.length) {
+    modes.push({
+      key: 'adventure',
+      name: en.get('GameMode/Adventure') ?? 'Adventure',
+      blurb: 'The main campaign. Six biomes, each with its own chapter of stages.',
+      icon: destinationIcon('AdventureIcon', 'adventure'),
+      players: 1,
+      groups: adventure,
+    });
+  }
+
+  const dungeons = extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, {
+    dir: join(SO, 'CombatLevels', 'Dungeons'),
+    script: SCRIPT.dungeon,
+    nameKeyPrefix: 'Dungeon',
+    setLabel: 'Tier',
+    levelLabel: (i) => `Tier ${i}`,
+  });
+  if (dungeons.length) {
+    modes.push({
+      key: 'dungeon',
+      name: en.get('GameMode/Dungeon') ?? 'Dungeon',
+      blurb: 'Tiered runs that drop accessories. The deeper the tier, the better the roll.',
+      icon: destinationIcon('DungeonIcon', 'dungeon'),
+      players: 1,
+      groups: dungeons,
+    });
+  }
+
+  const raids = extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, {
+    dir: join(SO, 'CombatLevels', 'Raids'),
+    script: SCRIPT.raid,
+    nameKeyPrefix: 'Raid',
+    setLabel: 'Difficulty',
+    levelLabel: (i, level) => level.difficulty ?? `Level ${i}`,
+    difficultyNames: E.Difficulties,
+  });
+  if (raids.length) {
+    modes.push({
+      key: 'raid',
+      name: en.get('GameMode/Raid') ?? 'Raid',
+      blurb: 'A three-player fight. Costs a Raid Key and pays out from shared loot pools.',
+      icon: destinationIcon('RaidIcon', 'raid'),
+      players: 3,
+      groups: raids,
+    });
+  }
+
+  return modes;
+}
+
+/** Adventure chapters, as `groups` in the shared mode shape. */
+function extractAdventure(guidIndex, en, monstersByKey, generators, itemsByGuid) {
   const biomeByChapter = new Map();
   for (const gen of generators) if (gen.chapter) biomeByChapter.set(gen.chapter, gen.biome);
 
@@ -1063,30 +1124,81 @@ function extractAdventure(guidIndex, en, monstersByKey, generators) {
     if (!b?._nameKey) continue;
     const folder = basename(dirname(file));
 
-    const difficulties = [
+    const sets = [
       ['Normal', b.NormalLevels],
       ['Hard', b.HardLevels],
       ['Master', b.MasterLevels],
     ]
-      .map(([difficulty, refs]) => ({
-        difficulty,
+      .map(([label, refs]) => ({
+        label,
         levels: (refs ?? [])
-          .map((ref, index) => readLevel(guidIndex.get(ref?.guid), index + 1, monstersByKey))
+          .map((ref, index) => readLevel(guidIndex.get(ref?.guid), index + 1, `Level ${index + 1}`, monstersByKey, itemsByGuid))
           .filter(Boolean),
       }))
-      .filter((d) => d.levels.length);
+      .filter((s) => s.levels.length);
 
     chapters.push({
       key: b._friendlyId || folder.toLowerCase(),
       name: en.get(`Adventure/${b._nameKey}`) ?? prettify(b._nameKey),
       biome: biomeByChapter.get(folder) ?? null,
-      difficulties,
+      setKind: 'Difficulty',
+      sets,
     });
   }
   return chapters;
 }
 
-function readLevel(file, index, monstersByKey) {
+/**
+ * Dungeons and raids share a layout: one definition asset holding an ordered
+ * `Levels` array. A dungeon's entries are tiers; a raid's are difficulties.
+ */
+function extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, opts) {
+  const groups = [];
+
+  for (const { file, doc } of loadDocs(walk(opts.dir, isAsset))) {
+    if (scriptGuid(doc) !== opts.script) continue;
+    const b = doc.body;
+    const id = b._friendlyId || basename(file, '.asset');
+
+    const levels = (b.Levels ?? [])
+      .map((ref, index) => {
+        const difficulty = opts.difficultyNames ? opts.difficultyNames[index] : null;
+        const level = readLevel(guidIndex.get(ref?.guid), index + 1, null, monstersByKey, itemsByGuid);
+        if (!level) return null;
+        level.difficulty = difficulty;
+        level.label = opts.levelLabel(index + 1, level);
+        return level;
+      })
+      .filter(Boolean)
+      // A level with no waves has nothing to fight: the asset exists but the
+      // content does not. Ancient Tree and Witch's Castle are shells like this,
+      // which is how unreleased locations exclude themselves — fill in the waves
+      // and they appear on their own.
+      .filter((level) => level.waves.length);
+
+    if (!levels.length) { warn(`${opts.nameKeyPrefix} ${id} has no level with any wave — not released yet, skipped`); continue; }
+
+    groups.push({
+      key: id.toLowerCase(),
+      name: en.get(`${opts.nameKeyPrefix}/${id}`) ?? prettify(id),
+      biome: null,
+      setKind: opts.setLabel,
+      sets: [{ label: opts.setLabel, levels }],
+    });
+  }
+
+  groups.sort((a, b) => a.name.localeCompare(b.name));
+  return groups;
+}
+
+function destinationIcon(fileBase, name) {
+  const file = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Destinations', `${fileBase}.png`);
+  if (existsSync(file)) return queueIconFile(file, 'gamemodes', name);
+  warn(`${fileBase}.png not found`);
+  return null;
+}
+
+function readLevel(file, index, label, monstersByKey, itemsByGuid) {
   if (!file || !existsSync(file)) return null;
   const docs = readUnityYaml(file);
 
@@ -1101,13 +1213,17 @@ function readLevel(file, index, monstersByKey) {
 
   return {
     index,
+    label,
     name: basename(file, '.asset'),
+    kind: E.named(E.LevelTypes, data.LevelType, 'Adventure'),
     cost: num(data.Cost),
     costCurrency: E.named(E.RechargeableCurrencies, data.CostType, 'Energy'),
     xp: num(data.Xp),
     monsterXp: num(data.MonsterXp),
     coins: [num(data.CoinMinMax?.x), num(data.CoinMinMax?.y)],
     teamSlots: num(data.ActiveTeamCount) || null,
+    accessoryDrop: data.DropAccessory ? accessoryOdds(data.AccessoryDrop) : null,
+    itemDrops: data.DropItems ? itemDropPools(data.ItemDrop, itemsByGuid) : [],
     waves: (config?.Waves ?? []).map((wave, i) => ({
       index: i + 1,
       enemies: groupEnemies(wave.Enemies ?? [], monstersByKey),
@@ -1115,17 +1231,59 @@ function readLevel(file, index, monstersByKey) {
   };
 }
 
+/**
+ * Dungeons do not drop a fixed item: they roll an accessory, picking a tier and a
+ * rarity from two separate weighted pools.
+ */
+function accessoryOdds(drop) {
+  const pool = (list) => (list?.m_ProbabilityItems ?? [])
+    .filter((p) => p.m_Enabled !== 0)
+    .map((p) => ({ value: num(p.m_Value), chance: pct(p.m_BaseProbability) }));
+
+  return {
+    tiers: pool(drop?.TierPool).map((t) => ({ tier: t.value, chance: t.chance })),
+    rarities: pool(drop?.RarityPool)
+      .map((r) => ({ rarity: E.named(E.ItemRarities, r.value, `Rarity ${r.value}`), chance: r.chance }))
+      .sort((a, b) => E.ItemRarities.indexOf(a.rarity) - E.ItemRarities.indexOf(b.rarity)),
+  };
+}
+
+/** Raid loot: named pools, each a weighted list of items with their own amounts. */
+function itemDropPools(drop, itemsByGuid) {
+  return (drop?.Pools ?? []).map((pool) => ({
+    pool: pool.PoolName ?? 'Pool',
+    entries: (pool.Pool?.m_ProbabilityItems ?? [])
+      .filter((p) => p.m_Enabled !== 0)
+      .map((entry) => {
+        const item = itemsByGuid.get(entry.m_Value?.Item?.guid);
+        if (!item) warn(`raid loot references unknown item guid ${entry.m_Value?.Item?.guid}`);
+        return {
+        item: item?.key ?? null,
+        itemName: item?.name ?? null,
+        icon: item?.icon ?? null,
+        chance: pct(entry.m_BaseProbability),
+        amounts: (entry.m_Value?.Amounts?.m_ProbabilityItems ?? [])
+          .filter((a) => a.m_Enabled !== 0)
+          .map((a) => ({ amount: num(a.m_Value), chance: pct(a.m_BaseProbability) }))
+          .sort((a, b) => a.amount - b.amount),
+        };
+      })
+      .sort((a, b) => (b.chance ?? 0) - (a.chance ?? 0)),
+  }));
+}
+
 /** Collapse a wave's enemy list into one row per distinct monster/level/type. */
 function groupEnemies(enemies, monstersByKey) {
+  const { linkable, display } = monstersByKey;
   const grouped = new Map();
   for (const enemy of enemies) {
     const id = `${enemy.EnemyFriendlyId}|${enemy.Level}|${enemy.Type}`;
     if (!grouped.has(id)) {
-      const monster = monstersByKey.get(enemy.EnemyFriendlyId);
+      const shown = display.get(enemy.EnemyFriendlyId);
       grouped.set(id, {
-        monster: monster ? enemy.EnemyFriendlyId : null,
-        name: monster?.name ?? prettify(enemy.EnemyFriendlyId),
-        icon: monster?.icon ?? null,
+        monster: linkable.has(enemy.EnemyFriendlyId) ? enemy.EnemyFriendlyId : null,
+        name: shown?.name ?? prettify(enemy.EnemyFriendlyId),
+        icon: shown?.icon ?? null,
         level: num(enemy.Level),
         type: E.named(E.EnemyTypes, enemy.Type, 'Basic'),
         count: 0,
@@ -1274,7 +1432,7 @@ const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
  * Remove excluded items and every reference to them, so the site never links to
  * something that is not in the payload.
  */
-function pruneExcludedItems({ items, sets, tables, recipes, unreferenced }) {
+function pruneExcludedItems({ items, sets, tables, recipes, unreferenced, gamemodes }) {
   const dropped = new Set([
     ...items.filter((i) => EXCLUDED_ITEM_CATEGORIES.has(i.category)).map((i) => i.key),
     ...unreferenced,
@@ -1297,6 +1455,19 @@ function pruneExcludedItems({ items, sets, tables, recipes, unreferenced }) {
     }
     return true;
   });
+
+  // Raid loot can name an item the wiki excludes; keep the name, drop the link.
+  for (const mode of gamemodes ?? []) {
+    for (const group of mode.groups) {
+      for (const set of group.sets) {
+        for (const level of set.levels) {
+          for (const pool of level.itemDrops) {
+            for (const entry of pool.entries) if (dropped.has(entry.item)) entry.item = null;
+          }
+        }
+      }
+    }
+  }
 
   const keptSets = sets.filter((s) => !s.pieces.every((p) => dropped.has(p)));
   for (const set of keptSets) {
@@ -1350,7 +1521,7 @@ function main() {
   console.log(`  ${tables.length} loot tables`);
 
   console.log('Extracting monsters…');
-  const { monsters, hidden, byGuid: monstersByGuid } = extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons });
+  const { monsters, hidden, byGuid: monstersByGuid, displayByKey } = extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons });
   console.log(`  ${monsters.length} monsters (${hidden.length} boss hidden: ${hidden.join(', ') || 'none'})`);
 
   const banners = extractSummons(en, monstersByGuid, itemsByGuid);
@@ -1366,22 +1537,23 @@ function main() {
   console.log(`  ${buildings.length} purchasable buildings`);
 
   console.log('Extracting game modes…');
-  const monstersByKey = new Map(monsters.map((m) => [m.key, m]));
-  const adventure = extractAdventure(guidIndex, en, monstersByKey, generators);
-  const levelCount = adventure.reduce((n, c) => n + c.difficulties.reduce((m, d) => m + d.levels.length, 0), 0);
-  const waveCount = adventure.reduce((n, c) => n + c.difficulties.reduce((m, d) => m + d.levels.reduce((w, l) => w + l.waves.length, 0), 0), 0);
-  console.log(`  ${adventure.length} chapters, ${levelCount} levels, ${waveCount} waves`);
-
-  const gamemodes = [{
-    key: 'adventure',
-    name: en.get('GameMode/Adventure') ?? 'Adventure',
-    icon: adventureIcon(),
-    chapters: adventure,
-  }];
+  const monsterLookup = {
+    linkable: new Set(monsters.map((m) => m.key)),
+    display: displayByKey,
+  };
+  const gamemodes = extractGameModes(guidIndex, en, monsterLookup, generators, itemsByGuid);
+  const allLevels = gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels)));
+  const levelCount = allLevels.length;
+  const waveCount = allLevels.reduce((n, l) => n + l.waves.length, 0);
+  for (const mode of gamemodes) {
+    const levels = mode.groups.reduce((n, g) => n + g.sets.reduce((m, s) => m + s.levels.length, 0), 0);
+    console.log(`  ${mode.name}: ${mode.groups.length} ${mode.key === 'adventure' ? 'chapters' : 'locations'}, ${levels} levels`);
+  }
+  console.log(`  ${levelCount} levels, ${waveCount} waves in total`);
 
   link({ items, sets, tables, recipes, monsters });
   tagItems(items, recipes);
-  const pruned = pruneExcludedItems({ items, sets, tables, recipes, unreferenced });
+  const pruned = pruneExcludedItems({ items, sets, tables, recipes, unreferenced, gamemodes });
   ({ items, sets, tables, recipes } = pruned);
   console.log(`  ${pruned.dropped.size} items removed (${[...EXCLUDED_ITEM_CATEGORIES].join(', ')} + unreferenced)`);
 
@@ -1398,7 +1570,8 @@ function main() {
       recipes: recipes.length,
       summonBanners: banners.length,
       buildings: buildings.length,
-      chapters: adventure.length,
+      chapters: gamemodes.find((m) => m.key === 'adventure')?.groups.length ?? 0,
+      gameModes: gamemodes.length,
       levels: levelCount,
     },
     summonBanners: banners,

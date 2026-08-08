@@ -56,6 +56,10 @@ export const RechargeableCurrencies = ['Energy', 'Raid Key', 'Arena Ticket'];
 
 export const BuildingShopCategories = ['Main', 'Defense', 'Resource', 'Decoration'];
 
+export const LevelTypes = ['Adventure', 'Dungeon', 'Raid'];
+
+export const Difficulties = ['Normal', 'Hard', 'Master'];
+
 export const StatIndexes = [
   'Max Health', 'Attack', 'Defense', 'Attack Speed', 'Crit Chance', 'Crit Damage',
   'Resistance', 'Accuracy', 'Speed', 'Crit Resistance', 'Damage Reduction',

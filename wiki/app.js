@@ -668,10 +668,13 @@ function summonPanel(m) {
   </section>`;
 }
 
+/** Turns authoring names into labels: `SwampTree`, `rare_pool` -> `Swamp Tree`, `Rare Pool`. */
 const prettifyName = (s) => String(s ?? '')
+  .replace(/[_-]+/g, ' ')
   .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
   .replace(/\s+/g, ' ')
-  .trim();
+  .trim()
+  .replace(/\b\p{Ll}/gu, (c) => c.toUpperCase());
 
 function renderRecipes(params) {
   const category = params.get('category') ?? 'all';
@@ -846,22 +849,22 @@ function renderBuildings(params) {
 
 /* --------------------------------------------------------------- game modes */
 
+const modeLevelCount = (m) => m.groups.reduce((n, g) => n + g.sets.reduce((k, s) => k + s.levels.length, 0), 0);
+
 function renderModes() {
   const frag = el(`<div>
     <h1>Game modes</h1>
-    <p class="subtitle">Adventure is documented; the other modes are not in the wiki yet.</p>
+    <p class="subtitle">Only released content is listed. Locations whose waves are still empty in the
+      build are left out and will appear here on their own once they are filled in.</p>
     <div class="grid" id="list"></div>
   </div>`);
 
-  frag.getElementById('list').append(...DB.gamemodes.map((m) => {
-    const levels = m.chapters.reduce((n, c) => n + c.difficulties.reduce((k, d) => k + d.levels.length, 0), 0);
-    return el(`<a class="card" href="#/mode/${slug(m.key)}">
-      ${thumb(m.icon, m.name)}
-      <span class="card-body">
-        <span class="card-title">${esc(m.name)}</span>
-        <span class="card-sub">${nf(m.chapters.length)} chapters · ${nf(levels)} levels</span>
-      </span></a>`);
-  }));
+  frag.getElementById('list').append(...DB.gamemodes.map((m) => el(`<a class="card" href="#/mode/${slug(m.key)}">
+    ${thumb(m.icon, m.name)}
+    <span class="card-body">
+      <span class="card-title">${esc(m.name)}</span>
+      <span class="card-sub">${nf(modeLevelCount(m))} levels${m.players > 1 ? ` · ${m.players} players` : ''}</span>
+    </span></a>`)));
   return frag;
 }
 
@@ -869,65 +872,109 @@ function renderMode(key) {
   const mode = IX.mode.get(key);
   if (!mode) return notFound('game mode', key);
 
+  const single = mode.groups.length === 1;
   const frag = el(`<div>
     <p class="crumbs"><a href="#/modes">Game modes</a></p>
     <div class="detail-head">
       ${thumb(mode.icon, mode.name)}
       <div>
         <h1>${esc(mode.name)}</h1>
-        <div class="detail-meta"><span class="badge">${nf(mode.chapters.length)} chapters</span></div>
+        <div class="detail-meta">
+          <span class="badge">${nf(modeLevelCount(mode))} levels</span>
+          ${mode.players > 1 ? `<span class="badge">${mode.players} players</span>` : ''}
+        </div>
       </div>
     </div>
-    <h2>Chapters</h2>
+    ${mode.blurb ? `<p class="subtitle" style="margin-top:18px">${esc(mode.blurb)}</p>` : ''}
     <div class="grid" id="list"></div>
   </div>`);
 
-  frag.getElementById('list').append(...mode.chapters.map((c, index) => {
-    const levels = c.difficulties.reduce((n, d) => n + d.levels.length, 0);
-    return el(`<a class="card" href="#/chapter/${slug(c.key)}">
-      <span class="thumb" style="width:40px;height:40px;flex:none;font:600 15px var(--mono);color:var(--text-dim)">${index + 1}</span>
+  frag.getElementById('list').append(...mode.groups.map((g, index) => {
+    const levels = g.sets.reduce((n, s) => n + s.levels.length, 0);
+    const sub = [g.biome, `${nf(levels)} ${g.setKind === 'Tier' ? 'tiers' : 'levels'}`].filter(Boolean).join(' · ');
+    return el(`<a class="card" href="#/chapter/${slug(g.key)}">
+      <span class="thumb" style="width:40px;height:40px;flex:none;font:600 15px var(--mono);color:var(--text-dim)">${single ? '' : index + 1}</span>
       <span class="card-body">
-        <span class="card-title">${esc(c.name)}</span>
-        <span class="card-sub">${c.biome ? `${esc(c.biome)} · ` : ''}${nf(levels)} levels</span>
+        <span class="card-title">${esc(g.name)}</span>
+        <span class="card-sub">${esc(sub)}</span>
       </span></a>`);
   }));
   return frag;
 }
 
+/** Odds panels: dungeons roll an accessory, raids draw from named loot pools. */
+function dropPanels(l) {
+  const parts = [];
+
+  if (l.accessoryDrop) {
+    parts.push(`<section class="panel" style="margin-bottom:12px">
+      <h3>Accessory roll</h3>
+      <p class="empty-note" style="margin-bottom:11px">Clearing this tier rolls one accessory: a tier,
+        then a rarity, drawn independently.</p>
+      <div class="panels">
+        <div><h3>Tier</h3><dl class="stats">${l.accessoryDrop.tiers.map((t) => `
+          <div><dt>Tier ${t.tier}</dt><dd>${t.chance}%</dd></div>`).join('')}</dl></div>
+        <div><h3>Rarity</h3><dl class="stats">${l.accessoryDrop.rarities.map((r) => `
+          <div><dt><span class="rarity-text r-${cls(r.rarity)}">${esc(r.rarity)}</span></dt><dd>${r.chance}%</dd></div>`).join('')}</dl></div>
+      </div>
+    </section>`);
+  }
+
+  for (const pool of l.itemDrops) {
+    parts.push(`<section class="panel" style="margin-bottom:12px">
+      <h3>Loot — ${esc(prettifyName(pool.pool))}</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Item</th><th class="num">Chance</th><th class="num">Amount</th></tr></thead>
+        <tbody>${pool.entries.map((e) => `<tr>
+          <td><span class="with-icon">${iconImg(e.icon, e.itemName ?? '')}${
+            e.item ? linkItem(e.item) : esc(e.itemName ?? '—')}</span></td>
+          <td class="num">${chanceCell(e.chance)}</td>
+          <td class="num">${esc(amountsText(e.amounts))}</td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </section>`);
+  }
+
+  return parts.join('');
+}
+
 function renderChapter(key, params) {
   const found = IX.chapter.get(key);
-  if (!found) return notFound('chapter', key);
+  if (!found) return notFound('location', key);
   const { chapter, mode } = found;
 
-  const available = chapter.difficulties.map((d) => d.difficulty);
-  const difficulty = available.includes(params.get('difficulty')) ? params.get('difficulty') : available[0];
-  const levels = chapter.difficulties.find((d) => d.difficulty === difficulty)?.levels ?? [];
+  const available = chapter.sets.map((s) => s.label);
+  const chosen = available.includes(params.get('difficulty')) ? params.get('difficulty') : available[0];
+  const levels = chapter.sets.find((s) => s.label === chosen)?.levels ?? [];
+  const showPicker = available.length > 1;
 
   const frag = el(`<div>
     <p class="crumbs"><a href="#/modes">Game modes</a> <span class="arrow">/</span>
       <a href="#/mode/${slug(mode.key)}">${esc(mode.name)}</a></p>
     <h1>${esc(chapter.name)}</h1>
-    <p class="subtitle">${chapter.biome ? `${esc(chapter.biome)} biome. ` : ''}Waves are listed in the order they spawn.</p>
+    <p class="subtitle">${chapter.biome ? `${esc(chapter.biome)} biome. ` : ''}Waves are listed in the order they spawn.${
+      mode.players > 1 ? ` Played by ${mode.players}.` : ''}</p>
     <div class="filters">
-      <div class="filter-group"><span>Difficulty</span>${available.map((d) => `
+      ${showPicker ? `<div class="filter-group"><span>${esc(chapter.setKind)}</span>${available.map((d) => `
         <button type="button" class="chip" data-param="difficulty" data-value="${esc(d)}"
-                aria-pressed="${String(d === difficulty)}">${esc(d)}</button>`).join('')}</div>
-      <span class="count">${nf(levels.length)} levels</span>
+                aria-pressed="${String(d === chosen)}">${esc(d)}</button>`).join('')}</div>` : ''}
+      <span class="count">${nf(levels.length)} ${chapter.setKind === 'Tier' ? 'tiers' : 'levels'}</span>
     </div>
     <div id="levels"></div>
   </div>`);
 
   frag.getElementById('levels').append(...levels.map((l) => el(`<section class="panel" style="margin-bottom:14px">
     <div class="skill-head" style="justify-content:space-between;margin-bottom:10px">
-      <span><span class="skill-name" style="font-size:16px">Level ${l.index}</span>
+      <span><span class="skill-name" style="font-size:16px">${esc(l.label ?? `Level ${l.index}`)}</span>
         <span class="skill-kind">${nf(l.waves.length)} waves</span></span>
       <span class="biome-list">
         <span class="badge">${nf(l.cost)} ${esc(l.costCurrency)}</span>
         <span class="badge">${nf(l.xp)} XP</span>
         <span class="badge">${nf(l.coins[0])}–${nf(l.coins[1])} coins</span>
-        ${l.teamSlots ? `<span class="badge">${nf(l.teamSlots)} slots</span>` : ''}
+        ${l.teamSlots ? `<span class="badge">${nf(l.teamSlots)} slot${l.teamSlots > 1 ? 's' : ''}</span>` : ''}
       </span>
     </div>
+    ${dropPanels(l)}
     <div class="table-wrap"><table>
       <thead><tr><th>Wave</th><th>Enemies</th></tr></thead>
       <tbody>${l.waves.map((w) => `<tr>
@@ -980,7 +1027,8 @@ function searchAll(query) {
   for (const t of DB.loot) push('Loot', t.sourceName, `#/loot/${slug(t.id)}`, t.icon, t.id);
   for (const b of DB.buildings) push('Building', b.name, `#/buildings`, b.icon, b.key);
   for (const m of DB.gamemodes) {
-    for (const c of m.chapters) push('Chapter', c.name, `#/chapter/${slug(c.key)}`, null, c.key);
+    push('Mode', m.name, `#/mode/${slug(m.key)}`, m.icon, m.key);
+    for (const g of m.groups) push(m.key === 'adventure' ? 'Chapter' : m.name, g.name, `#/chapter/${slug(g.key)}`, null, g.key);
   }
 
   hits.sort((a, b) => a.s - b.s || a.name.localeCompare(b.name));
@@ -1148,7 +1196,7 @@ function install(payloads) {
   for (const b of DB.buildings) IX.building.set(b.key, b);
   for (const mode of DB.gamemodes) {
     IX.mode.set(mode.key, mode);
-    for (const chapter of mode.chapters) IX.chapter.set(chapter.key, { chapter, mode });
+    for (const group of mode.groups) IX.chapter.set(group.key, { chapter: group, mode });
   }
 
   injectRarityColors(DB.meta.rarityColors);

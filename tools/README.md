@@ -4,7 +4,7 @@ Developer notes for this repository. The site itself needs no build step; this i
 about the wiki generator in `tools/`.
 
 The wiki is not hand-written: items, monsters, loot chances, recipes, item sets,
-buildings and the Adventure chapters are read out of the Unity project's
+buildings, the Adventure chapters, the dungeon and the raid are read out of the Unity project's
 ScriptableObjects and entity prefabs on every run. Run all commands from the
 repository root, not from `tools/`.
 
@@ -172,7 +172,8 @@ Scope is deliberately narrow for now. Left out, each easy to switch back on:
 | Items nothing references (21 more) | `findUnreferencedItems()` — see below |
 | Event summon banners | skipped in `extractSummons()` — limited-time, so not static data |
 | Non-purchasable buildings | `extractBuildings()` — ruins repaired in place, not bought |
-| Game modes other than Adventure | Dungeon, Raid, Bastion, PvP and Arena exist in the project but are not extracted yet |
+| Bastion, PvP and Arena modes | exist in the project but are not extracted yet |
+| Unreleased dungeons | a location with no waves anywhere excludes itself — see below |
 
 ## What the data means
 
@@ -201,6 +202,18 @@ Scope is deliberately narrow for now. Left out, each easy to switch back on:
   produces, on top of the folder. There is no `Premium` tag — that described where
   an asset lives, not what the item is; item bags, shards, candies and totems
   therefore carry no type tag and are reachable only under **All**.
+- **Only released content appears under Game modes.** A location is published when at least one
+  of its levels has waves. Ancient Tree, Witch's Castle, Cursed Pyramid and Frosted Prison have
+  `DungeonData` assets but no waves anywhere, so they exclude themselves — fill the waves in and they
+  show up with no code change. Antique Ruins (9 tiers) and Shadow's Citadel (Normal/Hard) are the two
+  that qualify today.
+- **Dungeons roll an accessory rather than dropping an item.** `AccessoryDrop` holds two independent
+  weighted pools, one for the tier and one for the rarity, and both are published per tier.
+- **Raid loot comes from named pools.** `ItemDrop.Pools` is a list of pools, each a weighted list of
+  items that each carry their own amount distribution. Shadow's Citadel has a main pool and a rare pool.
+- **A wave can show a monster that has no wiki page.** The two hidden raid/dungeon bosses still appear
+  in their own waves, with their name and icon but no link, because the encounter is real even though
+  the monster is not listed.
 - **Wave roles (Basic / Elite / Boss) are read but never published.** The same
   monster is Basic in one stage and Elite in another — the label describes the
   encounter, not the monster. Their only use is spotting raid bosses: a monster is
