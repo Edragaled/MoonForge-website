@@ -8,7 +8,6 @@
   "nav.talents": "Talents",
   "nav.status": "États",
   "nav.modes": "Modes",
-
   "search.placeholder": "Rechercher un objet, un monstre, une recette…",
   "search.label": "Rechercher",
   "theme.toggle": "Changer de thème",
@@ -16,7 +15,6 @@
   "loading": "Chargement des données…",
   "footer.generated": "Données générées le {date}",
   "footer.tagline": "Généré directement depuis le jeu",
-
   "home.title": "Wiki Pixel Chronicles",
   "home.subtitle": "Tous les objets, monstres, taux de drop et recettes, lus directement dans le projet du jeu.",
   "home.tile.items": "Objets",
@@ -29,7 +27,6 @@
   "home.tile.levels": "Niveaux d'aventure",
   "home.toughest": "Monstres les plus coriaces",
   "home.bestGear": "Équipement légendaire et relique",
-
   "filter.all": "Tous",
   "filter.sort": "Trier",
   "filter.shown": "{n} affichés",
@@ -42,13 +39,11 @@
   "filter.category": "Catégorie",
   "filter.station": "Atelier",
   "filter.group": "Groupe",
-
   "sort.name": "Nom",
   "sort.rarity": "Rareté",
   "sort.attack": "Attaque",
   "sort.defense": "Défense",
   "sort.health": "Vie",
-
   "items.title": "Objets",
   "items.subtitle": "{n} objets — stats, rareté, où ils tombent et comment les fabriquer.",
   "items.empty": "Aucun objet ne correspond à ces filtres.",
@@ -66,7 +61,6 @@
   "item.toolType": "Type d'outil",
   "item.toolTier": "Palier d'outil",
   "item.toolDamage": "Dégâts d'outil",
-
   "col.monster": "Monstre",
   "col.drops": "Butin",
   "col.source": "Source",
@@ -93,7 +87,6 @@
   "col.prop": "Élément",
   "col.tier": "Palier",
   "col.difficulty": "Difficulté",
-
   "monsters.title": "Monstres",
   "monsters.subtitle": "{n} monstres, dont {summonable} invocables — plusieurs n'apparaissent dans aucun niveau de combat et ne s'obtiennent qu'à l'invocation. Les stats de base sont les valeurs au niveau 1 sur le prefab, avant les multiplicateurs appliqués par niveau.",
   "monster.baseStats": "Stats de base (niveau 1)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "Pas de table de butin propre. Les boss lâchent leur butin via le pool de récompenses du niveau.",
   "monster.obtainable": "Disponible",
   "monster.notObtainable": "Indisponible",
-
   "loot.title": "Tables de butin",
   "loot.subtitle": "{n} tables. Les chances sont par mise à mort ou par récolte, pour chaque difficulté.",
   "loot.dropsItem": "Lâche l'objet",
@@ -124,17 +116,14 @@
   "loot.openMonster": "Voir le monstre →",
   "loot.entries": "{n} entrées",
   "loot.entries.one": "1 entrée",
-
   "recipes.title": "Recettes",
   "recipes.subtitle": "{n} recettes.",
   "recipe.output": "Production",
   "recipe.openRecipe": "Voir la recette →",
   "recipe.openItem": "Voir l'objet →",
   "recipe.subParts": "Fabriqué à partir de pièces fabriquées",
-
   "sets.title": "Ensembles d'objets",
   "sets.subtitle": "{n} ensembles. Porter toutes les pièces accorde le bonus indiqué.",
-
   "buildings.title": "Bâtiments",
   "buildings.subtitle": "{n} bâtiments achetables. Ceux qui commencent en ruines sur ton île et se réparent au lieu de s'acheter ne sont pas listés.",
   "building.buy": "Achat",
@@ -143,18 +132,15 @@
   "building.upgrades": "Améliorations",
   "building.free": "gratuit",
   "building.instant": "immédiat",
-
   "status.title": "États",
   "status.subtitle": "{n} états — {buffs} bonus et {debuffs} malus. Les valeurs sont celles affichées par les infobulles du jeu.",
   "status.noDescription": "Aucune description.",
   "status.every": "toutes les {n}s",
   "status.buffs": "Bonus",
   "status.debuffs": "Malus",
-
   "talents.title": "Talents",
   "talents.subtitle": "{n} talents. Chaque rang remplace le précédent — les valeurs ne se cumulent pas.",
   "talents.ranks": "{n} rangs",
-
   "modes.title": "Modes de jeu",
   "modes.subtitle": "Seul le contenu sorti est listé. Les lieux dont les vagues sont encore vides dans le build sont écartés et apparaîtront ici d'eux-mêmes une fois remplis.",
   "mode.levels": "{n} niveaux",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "Terminer ce palier tire un accessoire : un palier, puis une rareté, tirés indépendamment.",
   "mode.tierN": "Palier {n}",
   "mode.lootPool": "Butin — {name}",
-
   "error.notFound": "Introuvable",
   "error.noSuch": "Aucun {kind} nommé « {key} ».",
   "error.backHome": "Retour à l'accueil du wiki →",
@@ -180,7 +165,6 @@
   "error.staleCache": "Ton navigateur garde peut-être une ancienne version du wiki. Recharge avec {shortcut}.",
   "error.reportBug": "Si ça persiste, ça vaut le coup de signaler le bug :",
   "error.loadFailed": "Impossible de charger les données du wiki.",
-
   "kind.item": "objet",
   "kind.monster": "monstre",
   "kind.recipe": "recette",
@@ -188,7 +172,6 @@
   "kind.gameMode": "mode de jeu",
   "kind.location": "lieu",
   "kind.page": "page",
-
   "hit.Item": "Objet",
   "hit.Monster": "Monstre",
   "hit.Recipe": "Recette",
@@ -200,7 +183,6 @@
   "hit.Debuff": "Malus",
   "hit.Mode": "Mode",
   "hit.Chapter": "Chapitre",
-
   "vocab.rarity.Relic": "Relique",
   "vocab.element.Neutral": "Neutre",
   "vocab.category.Material": "Matériau",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "Palier",
   "vocab.enemyType.Basic": "Normal",
   "vocab.enemyType.Boss": "Boss",
-  "vocab.enemyType.Elite": "Élite"
+  "vocab.enemyType.Elite": "Élite",
+  "bastion.subtitle": "Trois joueurs défendent le Nexus au centre de la carte contre des vagues sans fin. Aucune vague n'est écrite à la main : elles sont toutes générées par les formules ci-dessous.",
+  "bastion.endless": "Sans fin",
+  "bastion.waveEvery": "Une vague toutes les {n}s",
+  "bastion.upgradeEvery": "Un choix d'amélioration toutes les {n} vagues",
+  "bastion.bossEvery": "Un boss toutes les {n} vagues",
+  "bastion.assailantsFrom": "Assaillants à partir de la vague {n}",
+  "bastion.scaling": "Montée en puissance",
+  "bastion.scalingNote": "Calculé avec les formules du jeu pour {players} joueurs. Le budget achète les ennemis dans le pool ; les multiplicateurs s'appliquent à chaque ennemi de la vague.",
+  "bastion.budget": "Budget",
+  "bastion.statsMult": "Stats ennemies",
+  "bastion.hpMult": "PV ennemis",
+  "bastion.assailants": "Assaillants",
+  "bastion.assailantNote": "Les assaillants foncent sur le Nexus au lieu de combattre. Ils ont {n}× les PV de la vague.",
+  "bastion.bossNote": "Les vagues de boss ajoutent un boss à {stats}× les stats et {health}× les PV. Un boss de l'élément de la vague est tiré, sans répétition jusqu'à épuisement de la rotation.",
+  "bastion.bosses": "Rotation des boss",
+  "bastion.pools": "Pools d'ennemis",
+  "bastion.poolNote": "Un pool est tiré à chaque vague, puis le budget est dépensé sur ses ennemis. Un ennemi n'est disponible qu'à partir de sa vague minimale.",
+  "bastion.cost": "Coût",
+  "bastion.minWave": "Dès la vague",
+  "bastion.upgrades": "Améliorations",
+  "bastion.upgradesNote": "{n} améliorations. Chaque choix en débloque une ou la monte d'un niveau, et un niveau remplace le précédent.",
+  "vocab.upgradeCategory.Offensive": "Offensif",
+  "vocab.upgradeCategory.Defensive": "Défensif",
+  "vocab.upgradeCategory.Utility": "Utilitaire",
+  "vocab.upgradeCategory.Specialist": "Spécialiste"
 }

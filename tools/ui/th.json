@@ -8,7 +8,6 @@
   "nav.talents": "ทาเลนต์",
   "nav.status": "สถานะ",
   "nav.modes": "โหมด",
-
   "search.placeholder": "ค้นหาไอเทม มอนสเตอร์ สูตรคราฟต์…",
   "search.label": "ค้นหา",
   "theme.toggle": "สลับธีมสี",
@@ -16,7 +15,6 @@
   "loading": "กำลังโหลดข้อมูลเกม…",
   "footer.generated": "ข้อมูลสร้างเมื่อ {date}",
   "footer.tagline": "สร้างจากตัวเกมโดยตรง",
-
   "home.title": "วิกิ Pixel Chronicles",
   "home.subtitle": "ไอเทม มอนสเตอร์ โอกาสดรอป และสูตรคราฟต์ทั้งหมด อ่านตรงจากโปรเจกต์ของเกม",
   "home.tile.items": "ไอเทม",
@@ -29,7 +27,6 @@
   "home.tile.levels": "ด่านผจญภัย",
   "home.toughest": "มอนสเตอร์ที่แข็งแกร่งที่สุด",
   "home.bestGear": "อุปกรณ์ระดับตำนานและเรลิก",
-
   "filter.all": "ทั้งหมด",
   "filter.sort": "เรียงตาม",
   "filter.shown": "แสดง {n} รายการ",
@@ -42,13 +39,11 @@
   "filter.category": "หมวด",
   "filter.station": "โต๊ะคราฟต์",
   "filter.group": "กลุ่ม",
-
   "sort.name": "ชื่อ",
   "sort.rarity": "ความหายาก",
   "sort.attack": "พลังโจมตี",
   "sort.defense": "พลังป้องกัน",
   "sort.health": "พลังชีวิต",
-
   "items.title": "ไอเทม",
   "items.subtitle": "ไอเทม {n} ชิ้น — ค่าสถานะ ความหายาก แหล่งดรอป และวิธีคราฟต์",
   "items.empty": "ไม่มีไอเทมที่ตรงกับตัวกรองนี้",
@@ -66,7 +61,6 @@
   "item.toolType": "ประเภทเครื่องมือ",
   "item.toolTier": "ระดับเครื่องมือ",
   "item.toolDamage": "ความเสียหายเครื่องมือ",
-
   "col.monster": "มอนสเตอร์",
   "col.drops": "ของดรอป",
   "col.source": "แหล่งที่มา",
@@ -93,7 +87,6 @@
   "col.prop": "วัตถุ",
   "col.tier": "ระดับ",
   "col.difficulty": "ความยาก",
-
   "monsters.title": "มอนสเตอร์",
   "monsters.subtitle": "มอนสเตอร์ {n} ตัว อัญเชิญได้ {summonable} ตัว — บางตัวไม่ปรากฏในด่านต่อสู้เลยและได้จากการอัญเชิญเท่านั้น ค่าสถานะพื้นฐานคือค่าระดับ 1 บนพรีแฟบ ก่อนตัวคูณที่แต่ละด่านใช้",
   "monster.baseStats": "ค่าสถานะพื้นฐาน (ระดับ 1)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "ไม่มีตารางดรอปของตัวเอง บอสจะดรอปผ่านกลุ่มรางวัลของด่าน",
   "monster.obtainable": "หาได้",
   "monster.notObtainable": "หาไม่ได้",
-
   "loot.title": "ตารางของดรอป",
   "loot.subtitle": "{n} ตาราง โอกาสคิดต่อการสังหารหรือการเก็บเกี่ยวหนึ่งครั้ง แยกตามความยาก",
   "loot.dropsItem": "ดรอปไอเทม",
@@ -124,17 +116,14 @@
   "loot.openMonster": "เปิดมอนสเตอร์ →",
   "loot.entries": "{n} รายการ",
   "loot.entries.one": "1 รายการ",
-
   "recipes.title": "สูตรคราฟต์",
   "recipes.subtitle": "{n} สูตร",
   "recipe.output": "ได้รับ",
   "recipe.openRecipe": "เปิดสูตร →",
   "recipe.openItem": "เปิดไอเทม →",
   "recipe.subParts": "คราฟต์จากชิ้นส่วนที่คราฟต์เอง",
-
   "sets.title": "เซ็ตไอเทม",
   "sets.subtitle": "{n} เซ็ต สวมใส่ครบทุกชิ้นจะได้โบนัสที่ระบุ",
-
   "buildings.title": "สิ่งก่อสร้าง",
   "buildings.subtitle": "สิ่งก่อสร้างที่ซื้อได้ {n} รายการ ส่วนที่เริ่มเป็นซากบนเกาะและต้องซ่อมแซมแทนการซื้อไม่ได้รวมไว้",
   "building.buy": "ซื้อ",
@@ -143,18 +132,15 @@
   "building.upgrades": "การอัปเกรด",
   "building.free": "ฟรี",
   "building.instant": "ทันที",
-
   "status.title": "สถานะ",
   "status.subtitle": "{n} สถานะ — บัฟ {buffs} และดีบัฟ {debuffs} ค่าตัวเลขตรงกับคำอธิบายในเกม",
   "status.noDescription": "ไม่มีคำอธิบาย",
   "status.every": "ทุก {n} วินาที",
   "status.buffs": "บัฟ",
   "status.debuffs": "ดีบัฟ",
-
   "talents.title": "ทาเลนต์",
   "talents.subtitle": "{n} ทาเลนต์ แต่ละระดับแทนที่ระดับก่อนหน้า — ค่าไม่สะสมกัน",
   "talents.ranks": "{n} ระดับ",
-
   "modes.title": "โหมดเกม",
   "modes.subtitle": "แสดงเฉพาะเนื้อหาที่เปิดแล้ว สถานที่ที่เวฟยังว่างอยู่ในบิลด์จะไม่แสดง และจะปรากฏที่นี่เองเมื่อมีข้อมูล",
   "mode.levels": "{n} ด่าน",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "ผ่านระดับนี้จะสุ่มเครื่องประดับหนึ่งชิ้น โดยสุ่มระดับและความหายากแยกกัน",
   "mode.tierN": "ระดับ {n}",
   "mode.lootPool": "ของดรอป — {name}",
-
   "error.notFound": "ไม่พบ",
   "error.noSuch": "ไม่มี{kind}ชื่อ “{key}”",
   "error.backHome": "กลับไปหน้าแรกของวิกิ →",
@@ -180,7 +165,6 @@
   "error.staleCache": "เบราว์เซอร์ของคุณอาจเก็บวิกิเวอร์ชันเก่าไว้ โหลดใหม่ด้วย {shortcut}",
   "error.reportBug": "ถ้าเกิดซ้ำ ๆ ควรแจ้งข้อบกพร่องนี้:",
   "error.loadFailed": "ไม่สามารถโหลดข้อมูลวิกิได้",
-
   "kind.item": "ไอเทม",
   "kind.monster": "มอนสเตอร์",
   "kind.recipe": "สูตรคราฟต์",
@@ -188,7 +172,6 @@
   "kind.gameMode": "โหมดเกม",
   "kind.location": "สถานที่",
   "kind.page": "หน้า",
-
   "hit.Item": "ไอเทม",
   "hit.Monster": "มอนสเตอร์",
   "hit.Recipe": "สูตรคราฟต์",
@@ -200,7 +183,6 @@
   "hit.Debuff": "ดีบัฟ",
   "hit.Mode": "โหมด",
   "hit.Chapter": "บท",
-
   "vocab.rarity.Relic": "เรลิก",
   "vocab.element.Neutral": "ไร้ธาตุ",
   "vocab.category.Material": "วัสดุ",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "ระดับ",
   "vocab.enemyType.Basic": "ปกติ",
   "vocab.enemyType.Boss": "บอส",
-  "vocab.enemyType.Elite": "อีลิท"
+  "vocab.enemyType.Elite": "อีลิท",
+  "bastion.subtitle": "ผู้เล่นสามคนช่วยกันป้องกันเน็กซัสที่กลางแมปจากเวฟที่ไม่มีที่สิ้นสุด ไม่มีเวฟใดเขียนไว้ล่วงหน้า ทุกเวฟถูกสร้างจากสูตรด้านล่าง",
+  "bastion.endless": "ไม่มีที่สิ้นสุด",
+  "bastion.waveEvery": "หนึ่งเวฟทุก {n} วินาที",
+  "bastion.upgradeEvery": "เลือกอัปเกรดหนึ่งอย่างทุก {n} เวฟ",
+  "bastion.bossEvery": "บอสหนึ่งตัวทุก {n} เวฟ",
+  "bastion.assailantsFrom": "ผู้บุกโจมตีตั้งแต่เวฟ {n}",
+  "bastion.scaling": "การไล่ระดับของเวฟ",
+  "bastion.scalingNote": "คำนวณด้วยสูตรของเกมเองที่ผู้เล่น {players} คน งบประมาณใช้ซื้อศัตรูจากพูล และตัวคูณมีผลกับศัตรูทุกตัวในเวฟนั้น",
+  "bastion.budget": "งบประมาณ",
+  "bastion.statsMult": "ค่าสถานะศัตรู",
+  "bastion.hpMult": "พลังชีวิตศัตรู",
+  "bastion.assailants": "ผู้บุกโจมตี",
+  "bastion.assailantNote": "ผู้บุกโจมตีจะพุ่งเข้าหาเน็กซัสแทนการต่อสู้ และมีพลังชีวิต {n} เท่าของเวฟนั้น",
+  "bastion.bossNote": "เวฟบอสจะเพิ่มบอสหนึ่งตัวที่มีค่าสถานะ {stats} เท่าและพลังชีวิต {health} เท่า โดยสุ่มบอสจากธาตุของเวฟนั้น และไม่ซ้ำจนกว่าจะครบรอบ",
+  "bastion.bosses": "รอบหมุนของบอส",
+  "bastion.pools": "พูลศัตรู",
+  "bastion.poolNote": "แต่ละเวฟจะสุ่มพูลหนึ่งพูล แล้วใช้งบประมาณซื้อศัตรูจากพูลนั้น ศัตรูจะปรากฏเมื่อถึงเวฟต่ำสุดของมันเท่านั้น",
+  "bastion.cost": "ราคา",
+  "bastion.minWave": "ตั้งแต่เวฟ",
+  "bastion.upgrades": "อัปเกรด",
+  "bastion.upgradesNote": "อัปเกรด {n} อย่าง แต่ละครั้งที่เลือกจะปลดล็อกหนึ่งอย่างหรือเพิ่มระดับ และระดับใหม่จะแทนที่ระดับก่อนหน้า",
+  "vocab.upgradeCategory.Offensive": "บุก",
+  "vocab.upgradeCategory.Defensive": "รับ",
+  "vocab.upgradeCategory.Utility": "สนับสนุน",
+  "vocab.upgradeCategory.Specialist": "เฉพาะทาง"
 }

@@ -973,14 +973,20 @@ function renderModes() {
     ${thumb(m.icon, m.name)}
     <span class="card-body">
       <span class="card-title">${esc(m.name)}</span>
-      <span class="card-sub">${esc(t('mode.levels', { n: nf(modeLevelCount(m)) }))}${m.players > 1 ? ` · ${esc(t('mode.players', { n: m.players }))}` : ''}</span>
+      <span class="card-sub">${esc(modeSummary(m))}${m.players > 1 ? ` · ${esc(t('mode.players', { n: m.players }))}` : ''}</span>
     </span></a>`)));
   return frag;
 }
 
+/** Bastion has no levels to count — it is endless by construction. */
+const modeSummary = (m) => (m.kind === 'endless'
+  ? t('bastion.endless')
+  : t('mode.levels', { n: nf(modeLevelCount(m)) }));
+
 function renderMode(key) {
   const mode = IX.mode.get(key);
   if (!mode) return notFound('gameMode', key);
+  if (mode.bastion) return renderBastion(mode);
 
   const single = mode.groups.length === 1;
   const frag = el(`<div>
@@ -1010,6 +1016,107 @@ function renderMode(key) {
         <span class="card-sub">${esc(sub)}</span>
       </span></a>`);
   }));
+  return frag;
+}
+
+/* ------------------------------------------------------------------ bastion */
+
+/**
+ * Bastion gets its own view because it has no authored levels at all: the waves
+ * are generated, so what a reader needs is the rules and the curve, not a list.
+ */
+function renderBastion(mode) {
+  const b = mode.bastion;
+
+  const rules = [
+    t('bastion.waveEvery', { n: b.waveSeconds }),
+    t('bastion.upgradeEvery', { n: b.upgradeInterval }),
+    t('bastion.bossEvery', { n: b.bossInterval }),
+    // The config counts waves from zero; the first wave with assailants is the next one.
+    t('bastion.assailantsFrom', { n: b.firstAssailantWave + 1 }),
+  ];
+
+  const frag = el(`<div>
+    <p class="crumbs"><a href="#/modes">${esc(t('modes.title'))}</a></p>
+    <div class="detail-head">
+      ${thumb(mode.icon, mode.name)}
+      <div>
+        <h1>${esc(mode.name)}</h1>
+        <div class="detail-meta">
+          <span class="badge">${esc(t('bastion.endless'))}</span>
+          <span class="badge">${esc(t('mode.players', { n: mode.players }))}</span>
+        </div>
+      </div>
+    </div>
+    <p class="subtitle" style="margin-top:18px">${esc(t('bastion.subtitle'))}</p>
+
+    <ul class="pill-list bastion-rules">${rules.map((r) => `<li><span class="badge">${esc(r)}</span></li>`).join('')}</ul>
+
+    <h2>${esc(t('bastion.scaling'))}</h2>
+    <p class="empty-note">${esc(t('bastion.scalingNote', { players: mode.players }))}</p>
+    <div class="table-wrap"><table>
+      <thead><tr>
+        <th>${esc(t('col.wave'))}</th>
+        <th class="num">${esc(t('bastion.budget'))}</th>
+        <th class="num">${esc(t('bastion.statsMult'))}</th>
+        <th class="num">${esc(t('bastion.hpMult'))}</th>
+        <th class="num">${esc(t('bastion.assailants'))}</th>
+      </tr></thead>
+      <tbody>${b.milestones.map((m) => `<tr>
+        <td>${nf(m.wave)}${m.boss ? ` <span class="skill-kind special">${esc(lb('enemyType', 'Boss'))}</span>` : ''}</td>
+        <td class="num">${nf(m.budget)}</td>
+        <td class="num">×${m.statsMultiplier}</td>
+        <td class="num">×${m.healthMultiplier}</td>
+        <td class="num">${m.assailants || '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+    <p class="empty-note" style="margin-top:10px">${esc(t('bastion.assailantNote', { n: b.assailantHealth }))}</p>
+    <p class="empty-note">${esc(t('bastion.bossNote', { stats: b.bossStats, health: b.bossHealth }))}</p>
+
+    <h2>${esc(t('bastion.bosses'))}</h2>
+    <div class="grid" id="bosses"></div>
+
+    <h2>${esc(t('bastion.pools'))}</h2>
+    <p class="empty-note">${esc(t('bastion.poolNote'))}</p>
+    <div class="panels" id="pools"></div>
+
+    <h2>${esc(t('bastion.upgrades'))}</h2>
+    <p class="empty-note">${esc(t('bastion.upgradesNote', { n: nf(b.upgrades.length) }))}</p>
+    <div class="status-grid" id="upgrades"></div>
+  </div>`);
+
+  frag.getElementById('bosses').append(...b.bosses.map((boss) => el(
+    boss.key
+      ? `<a class="card" href="#/monster/${slug(boss.key)}">${thumb(boss.icon, boss.name)}
+          <span class="card-body"><span class="card-title">${esc(boss.name)}</span></span></a>`
+      : `<span class="card">${thumb(boss.icon, boss.name)}
+          <span class="card-body"><span class="card-title">${esc(boss.name)}</span></span></span>`,
+  )));
+
+  frag.getElementById('pools').append(...b.pools.map((pool) => el(`<section class="panel">
+    <h3>${elementBadge(pool.element, DB.meta.elementIcons?.[pool.element])}</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>${esc(t('col.monster'))}</th><th class="num">${esc(t('bastion.cost'))}</th><th class="num">${esc(t('bastion.minWave'))}</th></tr></thead>
+      <tbody>${pool.enemies.map((e) => `<tr>
+        <td><span class="with-icon">${iconImg(e.icon, e.name ?? '')}${
+    e.key ? `<a href="#/monster/${slug(e.key)}">${esc(e.name)}</a>` : esc(e.name ?? '—')}</span></td>
+        <td class="num">${nf(e.cost)}</td>
+        <td class="num">${e.minWave > 0 ? nf(e.minWave) : '1'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </section>`)));
+
+  frag.getElementById('upgrades').append(...b.upgrades.map((u) => el(`<section class="status s-up r-${cls(u.rarity)}">
+    <span class="thumb status-icon">${iconImg(u.icon, u.name)}</span>
+    <div class="status-body">
+      <span class="status-name">${esc(u.name)}<span class="skill-kind">${esc(lb('upgradeCategory', u.category))}</span></span>
+      <span class="badge rarity r-${cls(u.rarity)}">${esc(lb('rarity', u.rarity))}</span>
+      <ol class="upgrade-levels">${u.levels.map((l) => `<li>${
+    l.lines.length ? l.lines.map((line) => `<span>${esc(line)}</span>`).join('') : `<span>${esc(t('status.noDescription'))}</span>`
+  }</li>`).join('')}</ol>
+    </div>
+  </section>`)));
+
   return frag;
 }
 

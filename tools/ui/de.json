@@ -8,7 +8,6 @@
   "nav.talents": "Talente",
   "nav.status": "Status",
   "nav.modes": "Modi",
-
   "search.placeholder": "Gegenstände, Monster, Rezepte suchen…",
   "search.label": "Suchen",
   "theme.toggle": "Farbschema wechseln",
@@ -16,7 +15,6 @@
   "loading": "Spieldaten werden geladen…",
   "footer.generated": "Daten erzeugt am {date}",
   "footer.tagline": "Direkt aus dem Spiel erzeugt",
-
   "home.title": "Pixel Chronicles Wiki",
   "home.subtitle": "Alle Gegenstände, Monster, Drop-Chancen und Rezepte, direkt aus dem Spielprojekt gelesen.",
   "home.tile.items": "Gegenstände",
@@ -29,7 +27,6 @@
   "home.tile.levels": "Abenteuer-Level",
   "home.toughest": "Stärkste Monster",
   "home.bestGear": "Legendäre und Relikt-Ausrüstung",
-
   "filter.all": "Alle",
   "filter.sort": "Sortieren",
   "filter.shown": "{n} angezeigt",
@@ -42,13 +39,11 @@
   "filter.category": "Kategorie",
   "filter.station": "Werkstatt",
   "filter.group": "Gruppe",
-
   "sort.name": "Name",
   "sort.rarity": "Seltenheit",
   "sort.attack": "Angriff",
   "sort.defense": "Verteidigung",
   "sort.health": "Leben",
-
   "items.title": "Gegenstände",
   "items.subtitle": "{n} Gegenstände — Werte, Seltenheit, wo sie fallen und wie sie hergestellt werden.",
   "items.empty": "Kein Gegenstand passt zu diesen Filtern.",
@@ -66,7 +61,6 @@
   "item.toolType": "Werkzeugtyp",
   "item.toolTier": "Werkzeugstufe",
   "item.toolDamage": "Werkzeugschaden",
-
   "col.monster": "Monster",
   "col.drops": "Beute",
   "col.source": "Quelle",
@@ -93,7 +87,6 @@
   "col.prop": "Objekt",
   "col.tier": "Stufe",
   "col.difficulty": "Schwierigkeit",
-
   "monsters.title": "Monster",
   "monsters.subtitle": "{n} Monster, davon {summonable} beschwörbar — mehrere erscheinen in keinem Kampflevel und lassen sich nur beschwören. Die Basiswerte sind die Stufe-1-Werte des Prefabs, vor den Multiplikatoren, die ein Level anwendet.",
   "monster.baseStats": "Basiswerte (Stufe 1)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "Keine eigene Beutetabelle. Bosse lassen ihre Beute über den Belohnungspool des Levels fallen.",
   "monster.obtainable": "Erhältlich",
   "monster.notObtainable": "Nicht erhältlich",
-
   "loot.title": "Beutetabellen",
   "loot.subtitle": "{n} Tabellen. Die Chancen gelten pro Tötung oder pro Ernte, aufgeführt je Schwierigkeit.",
   "loot.dropsItem": "Lässt Gegenstand fallen",
@@ -124,17 +116,14 @@
   "loot.openMonster": "Monster öffnen →",
   "loot.entries": "{n} Einträge",
   "loot.entries.one": "1 Eintrag",
-
   "recipes.title": "Rezepte",
   "recipes.subtitle": "{n} Rezepte.",
   "recipe.output": "Ergibt",
   "recipe.openRecipe": "Rezept öffnen →",
   "recipe.openItem": "Gegenstand öffnen →",
   "recipe.subParts": "Aus hergestellten Teilen gefertigt",
-
   "sets.title": "Gegenstands-Sets",
   "sets.subtitle": "{n} Sets. Wer alle Teile trägt, erhält den angegebenen Bonus.",
-
   "buildings.title": "Gebäude",
   "buildings.subtitle": "{n} kaufbare Gebäude. Die, die als Ruine auf deiner Insel beginnen und repariert statt gekauft werden, fehlen hier.",
   "building.buy": "Kauf",
@@ -143,18 +132,15 @@
   "building.upgrades": "Ausbaustufen",
   "building.free": "kostenlos",
   "building.instant": "sofort",
-
   "status.title": "Statuseffekte",
   "status.subtitle": "{n} Effekte — {buffs} Buffs und {debuffs} Debuffs. Die Werte sind die, die auch die Tooltips im Spiel zeigen.",
   "status.noDescription": "Keine Beschreibung.",
   "status.every": "alle {n}s",
   "status.buffs": "Buffs",
   "status.debuffs": "Debuffs",
-
   "talents.title": "Talente",
   "talents.subtitle": "{n} Talente. Jeder Rang ersetzt den vorherigen — die Werte summieren sich nicht.",
   "talents.ranks": "{n} Ränge",
-
   "modes.title": "Spielmodi",
   "modes.subtitle": "Nur veröffentlichte Inhalte werden aufgeführt. Orte, deren Wellen im Build noch leer sind, fehlen und erscheinen hier von selbst, sobald sie gefüllt sind.",
   "mode.levels": "{n} Level",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "Wer diese Stufe abschließt, erwürfelt ein Accessoire: zuerst eine Stufe, dann eine Seltenheit, unabhängig voneinander.",
   "mode.tierN": "Stufe {n}",
   "mode.lootPool": "Beute — {name}",
-
   "error.notFound": "Nicht gefunden",
   "error.noSuch": "Kein {kind} mit dem Namen „{key}“.",
   "error.backHome": "Zurück zur Wiki-Startseite →",
@@ -180,7 +165,6 @@
   "error.staleCache": "Dein Browser hält möglicherweise eine ältere Version des Wikis. Lade mit {shortcut} neu.",
   "error.reportBug": "Wenn das weiter passiert, lohnt es sich, den Fehler zu melden:",
   "error.loadFailed": "Die Wiki-Daten konnten nicht geladen werden.",
-
   "kind.item": "Gegenstand",
   "kind.monster": "Monster",
   "kind.recipe": "Rezept",
@@ -188,7 +172,6 @@
   "kind.gameMode": "Spielmodus",
   "kind.location": "Ort",
   "kind.page": "Seite",
-
   "hit.Item": "Gegenstand",
   "hit.Monster": "Monster",
   "hit.Recipe": "Rezept",
@@ -200,7 +183,6 @@
   "hit.Debuff": "Debuff",
   "hit.Mode": "Modus",
   "hit.Chapter": "Kapitel",
-
   "vocab.rarity.Relic": "Relikt",
   "vocab.element.Neutral": "Neutral",
   "vocab.category.Material": "Material",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "Stufe",
   "vocab.enemyType.Basic": "Normal",
   "vocab.enemyType.Boss": "Boss",
-  "vocab.enemyType.Elite": "Elite"
+  "vocab.enemyType.Elite": "Elite",
+  "bastion.subtitle": "Drei Spieler verteidigen den Nexus in der Kartenmitte gegen endlose Wellen. Keine Welle ist handgebaut: alle entstehen aus den Formeln unten.",
+  "bastion.endless": "Endlos",
+  "bastion.waveEvery": "Eine Welle alle {n}s",
+  "bastion.upgradeEvery": "Eine Verbesserung zur Wahl alle {n} Wellen",
+  "bastion.bossEvery": "Ein Boss alle {n} Wellen",
+  "bastion.assailantsFrom": "Angreifer ab Welle {n}",
+  "bastion.scaling": "Wellen-Skalierung",
+  "bastion.scalingNote": "Mit den Formeln des Spiels für {players} Spieler berechnet. Das Budget kauft Gegner aus dem Pool; die Multiplikatoren gelten für jeden Gegner dieser Welle.",
+  "bastion.budget": "Budget",
+  "bastion.statsMult": "Gegnerwerte",
+  "bastion.hpMult": "Gegner-HP",
+  "bastion.assailants": "Angreifer",
+  "bastion.assailantNote": "Angreifer stürmen den Nexus statt zu kämpfen. Sie haben {n}× die HP der Welle.",
+  "bastion.bossNote": "Boss-Wellen fügen einen Boss mit {stats}× Werten und {health}× HP hinzu. Gezogen wird ein Boss des Wellen-Elements, ohne Wiederholung bis die Rotation durch ist.",
+  "bastion.bosses": "Boss-Rotation",
+  "bastion.pools": "Gegner-Pools",
+  "bastion.poolNote": "Pro Welle wird ein Pool gezogen, dann wird das Budget für dessen Gegner ausgegeben. Ein Gegner steht erst ab seiner Mindestwelle bereit.",
+  "bastion.cost": "Kosten",
+  "bastion.minWave": "Ab Welle",
+  "bastion.upgrades": "Verbesserungen",
+  "bastion.upgradesNote": "{n} Verbesserungen. Jede Wahl schaltet eine frei oder hebt sie eine Stufe, und eine Stufe ersetzt die vorherige.",
+  "vocab.upgradeCategory.Offensive": "Offensiv",
+  "vocab.upgradeCategory.Defensive": "Defensiv",
+  "vocab.upgradeCategory.Utility": "Unterstützung",
+  "vocab.upgradeCategory.Specialist": "Spezialist"
 }

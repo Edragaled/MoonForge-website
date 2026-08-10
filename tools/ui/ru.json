@@ -8,7 +8,6 @@
   "nav.talents": "Таланты",
   "nav.status": "Эффекты",
   "nav.modes": "Режимы",
-
   "search.placeholder": "Поиск предметов, монстров, рецептов…",
   "search.label": "Поиск",
   "theme.toggle": "Сменить тему",
@@ -16,7 +15,6 @@
   "loading": "Загрузка данных игры…",
   "footer.generated": "Данные собраны {date}",
   "footer.tagline": "Сгенерировано напрямую из игры",
-
   "home.title": "Вики Pixel Chronicles",
   "home.subtitle": "Все предметы, монстры, шансы добычи и рецепты, прочитанные прямо из проекта игры.",
   "home.tile.items": "Предметы",
@@ -29,7 +27,6 @@
   "home.tile.levels": "Уровни приключения",
   "home.toughest": "Самые сильные монстры",
   "home.bestGear": "Легендарное и реликтовое снаряжение",
-
   "filter.all": "Все",
   "filter.sort": "Сортировка",
   "filter.shown": "показано: {n}",
@@ -42,13 +39,11 @@
   "filter.category": "Категория",
   "filter.station": "Верстак",
   "filter.group": "Группа",
-
   "sort.name": "Название",
   "sort.rarity": "Редкость",
   "sort.attack": "Атака",
   "sort.defense": "Защита",
   "sort.health": "Здоровье",
-
   "items.title": "Предметы",
   "items.subtitle": "{n} предметов — характеристики, редкость, откуда падают и как создаются.",
   "items.empty": "Ни один предмет не подходит под эти фильтры.",
@@ -66,7 +61,6 @@
   "item.toolType": "Тип инструмента",
   "item.toolTier": "Ступень инструмента",
   "item.toolDamage": "Урон инструмента",
-
   "col.monster": "Монстр",
   "col.drops": "Добыча",
   "col.source": "Источник",
@@ -93,7 +87,6 @@
   "col.prop": "Объект",
   "col.tier": "Ступень",
   "col.difficulty": "Сложность",
-
   "monsters.title": "Монстры",
   "monsters.subtitle": "{n} монстров, из них {summonable} можно призвать — некоторые не встречаются ни в одном бою и достаются только призывом. Базовые характеристики — значения 1-го уровня на префабе, до множителей, которые применяет этап.",
   "monster.baseStats": "Базовые характеристики (уровень 1)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "Своей таблицы добычи нет. Боссы отдают добычу через пул наград этапа.",
   "monster.obtainable": "Доступен",
   "monster.notObtainable": "Недоступен",
-
   "loot.title": "Таблицы добычи",
   "loot.subtitle": "{n} таблиц. Шансы указаны за одно убийство или сбор, для каждой сложности.",
   "loot.dropsItem": "Даёт предмет",
@@ -124,17 +116,14 @@
   "loot.openMonster": "Открыть монстра →",
   "loot.entries": "записей: {n}",
   "loot.entries.one": "1 запись",
-
   "recipes.title": "Рецепты",
   "recipes.subtitle": "{n} рецептов.",
   "recipe.output": "Выход",
   "recipe.openRecipe": "Открыть рецепт →",
   "recipe.openItem": "Открыть предмет →",
   "recipe.subParts": "Собирается из созданных деталей",
-
   "sets.title": "Наборы предметов",
   "sets.subtitle": "{n} наборов. Ношение всех частей даёт указанный бонус.",
-
   "buildings.title": "Здания",
   "buildings.subtitle": "{n} зданий, которые можно купить. Те, что начинаются как руины на острове и восстанавливаются, а не покупаются, здесь не показаны.",
   "building.buy": "Покупка",
@@ -143,18 +132,15 @@
   "building.upgrades": "Улучшения",
   "building.free": "бесплатно",
   "building.instant": "мгновенно",
-
   "status.title": "Эффекты состояния",
   "status.subtitle": "{n} эффектов — {buffs} положительных и {debuffs} отрицательных. Значения те же, что показывают подсказки в игре.",
   "status.noDescription": "Без описания.",
   "status.every": "каждые {n} с",
   "status.buffs": "Положительные",
   "status.debuffs": "Отрицательные",
-
   "talents.title": "Таланты",
   "talents.subtitle": "{n} талантов. Каждый ранг заменяет предыдущий — значения не складываются.",
   "talents.ranks": "рангов: {n}",
-
   "modes.title": "Режимы игры",
   "modes.subtitle": "Показан только выпущенный контент. Локации, чьи волны в сборке пока пусты, пропущены и появятся здесь сами, когда будут заполнены.",
   "mode.levels": "уровней: {n}",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "За прохождение этой ступени разыгрывается один аксессуар: сначала ступень, затем редкость, независимо друг от друга.",
   "mode.tierN": "Ступень {n}",
   "mode.lootPool": "Добыча — {name}",
-
   "error.notFound": "Не найдено",
   "error.noSuch": "{kind} с названием «{key}» не найден.",
   "error.backHome": "На главную вики →",
@@ -180,7 +165,6 @@
   "error.staleCache": "Возможно, браузер держит старую версию вики. Обнови страницу через {shortcut}.",
   "error.reportBug": "Если это повторяется, об ошибке стоит сообщить:",
   "error.loadFailed": "Не удалось загрузить данные вики.",
-
   "kind.item": "предмет",
   "kind.monster": "монстр",
   "kind.recipe": "рецепт",
@@ -188,7 +172,6 @@
   "kind.gameMode": "режим игры",
   "kind.location": "локация",
   "kind.page": "страница",
-
   "hit.Item": "Предмет",
   "hit.Monster": "Монстр",
   "hit.Recipe": "Рецепт",
@@ -200,7 +183,6 @@
   "hit.Debuff": "Ослабление",
   "hit.Mode": "Режим",
   "hit.Chapter": "Глава",
-
   "vocab.rarity.Relic": "Реликвия",
   "vocab.element.Neutral": "Нейтральный",
   "vocab.category.Material": "Материал",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "Ступень",
   "vocab.enemyType.Basic": "Обычный",
   "vocab.enemyType.Boss": "Босс",
-  "vocab.enemyType.Elite": "Элитный"
+  "vocab.enemyType.Elite": "Элитный",
+  "bastion.subtitle": "Трое игроков защищают Нексус в центре карты от бесконечных волн. Волны не прописаны вручную — все они строятся по формулам ниже.",
+  "bastion.endless": "Бесконечный",
+  "bastion.waveEvery": "Волна каждые {n} с",
+  "bastion.upgradeEvery": "Выбор улучшения каждые {n} волн",
+  "bastion.bossEvery": "Босс каждые {n} волн",
+  "bastion.assailantsFrom": "Штурмовики с волны {n}",
+  "bastion.scaling": "Рост сложности",
+  "bastion.scalingNote": "Рассчитано по формулам самой игры для {players} игроков. Бюджет закупает врагов из пула; множители применяются к каждому врагу волны.",
+  "bastion.budget": "Бюджет",
+  "bastion.statsMult": "Характеристики врагов",
+  "bastion.hpMult": "ОЗ врагов",
+  "bastion.assailants": "Штурмовики",
+  "bastion.assailantNote": "Штурмовики бегут к Нексусу вместо боя. У них {n}× ОЗ волны.",
+  "bastion.bossNote": "Волны с боссом добавляют одного босса с ×{stats} характеристик и ×{health} ОЗ. Берётся босс стихии волны, без повторов до конца ротации.",
+  "bastion.bosses": "Ротация боссов",
+  "bastion.pools": "Пулы врагов",
+  "bastion.poolNote": "На каждую волну берётся один пул, затем бюджет тратится на врагов из него. Враг доступен только с указанной волны.",
+  "bastion.cost": "Цена",
+  "bastion.minWave": "С волны",
+  "bastion.upgrades": "Улучшения",
+  "bastion.upgradesNote": "{n} улучшений. Каждый выбор либо открывает улучшение, либо повышает его на уровень; уровень заменяет предыдущий.",
+  "vocab.upgradeCategory.Offensive": "Атака",
+  "vocab.upgradeCategory.Defensive": "Защита",
+  "vocab.upgradeCategory.Utility": "Поддержка",
+  "vocab.upgradeCategory.Specialist": "Специалист"
 }

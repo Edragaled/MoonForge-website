@@ -24,6 +24,7 @@ import { readTalentValues, fillTalentText, romanNumeral } from './lib/talents.mj
 import { readStatusEffectScripts, describeStatusEffect } from './lib/status-effects.mjs';
 import { loadLanguages } from './lib/i18n.mjs';
 import { loadUiStrings } from './lib/ui-strings.mjs';
+import { readUpgradeScripts, effectsForLevel, fillUpgradeLine, PLAYER_UPGRADE_RARITIES, PLAYER_UPGRADE_CATEGORIES } from './lib/bastion.mjs';
 import * as E from './lib/enums.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -68,6 +69,8 @@ const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements')
 const TALENT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Talents');
 const STATUS_EFFECT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'StatusEffects');
 const UI_STRINGS = join(HERE, 'ui');
+const BASTION_UPGRADE_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Bastion', 'Upgrades', 'PlayerUpgrades');
+const BASTION_UPGRADE_ASSETS = join(ASSETS, 'QuantumUser', 'Resources', 'DB', 'Bastion', 'PlayerUpgrades');
 
 // The biome folders under LootTables/Monsters and the generator name prefixes
 // disagree on one name; the folder spelling is what the wiki shows.
@@ -805,6 +808,8 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
   // Name and icon for every monster including the hidden bosses, so a raid or
   // dungeon wave can still show its boss even though it has no wiki page.
   const displayByKey = new Map();
+  // Bastion references its enemies by prefab rather than by monster asset.
+  const keyByPrefab = new Map();
 
   for (const { file, doc } of loadDocs(walk(join(SO, 'Monsters'), isAsset))) {
     if (scriptGuid(doc) !== SCRIPT.monster) continue;
@@ -824,6 +829,7 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
     const roles = [...(appearances.get(key) ?? [])].sort();
     const displayName = en.get(`Monster/${nameKey}`) ?? prettify(nameKey);
     displayByKey.set(key, { name: displayName, icon: queueIcon(b.Icon, guidIndex, 'monsters', key) });
+    keyByPrefab.set(prefabName, key);
     if (isRaidExclusiveBoss(roles)) { hidden.push(key); continue; }
 
     const lootTable = stats.lootTableGuid ? lootByQuantumGuid.get(stats.lootTableGuid) : null;
@@ -865,7 +871,7 @@ function extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid, appea
   }
 
   monsters.sort((a, b) => a.name.localeCompare(b.name));
-  return { monsters, hidden, byGuid, displayByKey };
+  return { monsters, hidden, byGuid, displayByKey, keyByPrefab };
 }
 
 /**
@@ -1081,6 +1087,214 @@ function extractBuildings(guidIndex, en, itemsByGuid) {
 
   buildings.sort((a, b) => a.name.localeCompare(b.name));
   return buildings;
+}
+
+// ------------------------------------------------------------------ bastion
+
+const cleanKey = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+const round2 = (n) => Math.round(n * 100) / 100;
+const round4 = (n) => Math.round(n * 1e4) / 1e4;
+
+/**
+ * Bastion: three players defend a Nexus in the middle of the map against endless
+ * waves. Nothing about it fits the level-based shape the other modes share — there
+ * is no authored wave list at all, only the formulas that generate one — so the
+ * mode carries its own payload and the site renders it with its own view.
+ */
+function extractBastion(guidIndex, L, monsters) {
+  const configFile = join(ASSETS, 'QuantumUser', 'Resources', 'DB', 'Bastion', 'DefaultBastionConfig.asset');
+  if (!existsSync(configFile)) { warn('DefaultBastionConfig.asset not found — Bastion skipped'); return null; }
+
+  const c = readUnityYaml(configFile)[0]?.body;
+  if (!c) { warn('DefaultBastionConfig.asset could not be parsed — Bastion skipped'); return null; }
+
+  const statusNames = statusEffectNameIndex();
+  const upgrades = extractBastionUpgrades(guidIndex, L, statusNames);
+
+  // The tuning constants, named as the config names them.
+  const tuning = {
+    upgradeInterval: c.UpgradeChoiceWaveInterval ?? 5,
+    bossInterval: c.BossWaveInterval ?? 10,
+    firstAssailantWave: c.FirstAssailantWave ?? 5,
+    baseBudget: c.BaseBudget ?? 0,
+    budgetPerWave: c.BudgetPerWave ?? 0,
+    baseStats: fp(c.BaseStats),
+    statsPerWave: fp(c.StatsPerWave),
+    baseHealth: fp(c.BaseHealthMultiplier),
+    healthGrowth: fp(c.HealthGrowthBase),
+    playerHealth: (c.PlayerCountHealthMultipliers ?? []).map(fp),
+    assailantGrowth: fp(c.AssailantGrowth),
+    assailantCurvePower: fp(c.AssailantCurvePower),
+    assailantHealth: fp(c.AssailantHealthMultiplier),
+    bossStats: fp(c.BossStatsMultiplier),
+    bossHealth: fp(c.BossHealthMultiplier),
+  };
+
+  const players = 3;
+  const playerMultiplier = tuning.playerHealth[
+    Math.min(Math.max(players - 1, 0), Math.max(tuning.playerHealth.length - 1, 0))
+  ] ?? 1;
+
+  // The same formulas as BastionWaveConfig, which takes a zero-based wave index.
+  const curve = (wave) => {
+    const i = wave - 1;
+    const assailants = i < tuning.firstAssailantWave
+      ? 0
+      : Math.round(1 + tuning.assailantGrowth * (i - tuning.firstAssailantWave) ** tuning.assailantCurvePower);
+    return {
+      wave,
+      budget: tuning.baseBudget + tuning.budgetPerWave * i,
+      statsMultiplier: round2(tuning.baseStats + tuning.statsPerWave * i),
+      healthMultiplier: round2(tuning.baseHealth * tuning.healthGrowth ** i * playerMultiplier),
+      assailants,
+      boss: wave % tuning.bossInterval === 0,
+      upgrade: wave % tuning.upgradeInterval === 0,
+    };
+  };
+
+  const monsterRef = (ref) => {
+    // The reference is to the monster's `.qprototype`, whose whole content is the
+    // guid of the prefab it wraps — the same indirection buildPrototypeIndex walks.
+    let prefab = ref?.guid && guidIndex.get(ref.guid);
+    if (prefab?.endsWith('.qprototype')) {
+      prefab = guidIndex.get(readFileSync(prefab, 'utf8').trim()) ?? null;
+    }
+    if (!prefab) return { key: null, name: null, icon: null };
+    const prefabName = basename(prefab, '.prefab');
+    const key = monsters.byPrefab.get(prefabName);
+    const display = key && monsters.display.get(key);
+    return {
+      key: key && monsters.linkable.has(key) ? key : null,
+      name: display?.name ?? prettify(prefabName),
+      icon: display?.icon ?? null,
+    };
+  };
+
+  const pools = (c.EnemyPools ?? []).map((pool) => ({
+    element: E.named(E.Elements, pool.Element, 'Neutral'),
+    weight: fp(pool.SelectionWeight),
+    enemies: (pool.Enemies ?? []).map((entry, index) => {
+      const resolved = monsterRef(entry.EntityPrototype);
+      return {
+        ...resolved,
+        // The pool carries its own icon, which is what the in-game wave preview
+        // shows; fall back to the monster's own if the field is empty.
+        icon: queueIcon(entry.MonsterIcon, guidIndex, 'bastion', cleanKey(resolved.name ?? `enemy_${index}`))
+          ?? resolved.icon,
+        cost: entry.Cost ?? 0,
+        minWave: entry.MinWave ?? 0,
+      };
+    }).sort((a, b) => a.cost - b.cost || String(a.name).localeCompare(String(b.name))),
+  })).sort((a, b) => b.weight - a.weight || a.element.localeCompare(b.element));
+
+  // The authored list repeats one boss; the rotation treats it as a single entry.
+  const bosses = [];
+  const seen = new Set();
+  for (const ref of c.Bosses ?? []) {
+    if (!ref?.guid || seen.has(ref.guid)) continue;
+    seen.add(ref.guid);
+    bosses.push(monsterRef(ref));
+  }
+
+  return {
+    key: 'bastion',
+    name: L.get('GameMode/Bastion') ?? 'Bastion',
+    blurb: null,
+    icon: destinationIcon('BastionIcon', 'bastion'),
+    players,
+    kind: 'endless',
+    groups: [],
+    bastion: {
+      // Rounded only on the way out: the milestones above are computed from the
+      // exact fixed-point values, so a rounded growth base cannot skew the curve.
+      ...Object.fromEntries(Object.entries(tuning).map(([k, v]) => [
+        k, typeof v === 'number' ? round4(v) : Array.isArray(v) ? v.map(round4) : v,
+      ])),
+      players,
+      playerMultiplier: round4(playerMultiplier),
+      // Wave time is hardcoded in BastionWaveConfig.GetWaveInterval, not authored.
+      waveSeconds: 45,
+      milestones: [1, 5, 10, 20, 30, 40, 50].map(curve),
+      bosses,
+      pools,
+      upgrades,
+    },
+  };
+}
+
+/** `NameKey` of every status effect, by Unity guid and by Quantum asset guid. */
+function statusEffectNameIndex() {
+  const byUnityGuid = new Map();
+  const byQuantumGuid = new Map();
+  for (const { file, doc } of loadDocs(walk(join(SO, 'StatusEffects'), isAsset))) {
+    const b = doc.body;
+    if (!b?.NameKey) continue;
+    const unityGuid = readMetaGuid(file);
+    if (unityGuid) byUnityGuid.set(unityGuid, b.NameKey);
+    const quantumGuid = b.Identifier?.Guid?.Value;
+    if (quantumGuid) byQuantumGuid.set(String(quantumGuid), b.NameKey);
+  }
+  return { byUnityGuid, byQuantumGuid };
+}
+
+/**
+ * The roguelike upgrades offered every few waves. Each level's lines come from the
+ * upgrade's own `PopulateEffectsAtLevel`, replayed by lib/bastion.mjs.
+ */
+function extractBastionUpgrades(guidIndex, L, statusNames) {
+  const scripts = readUpgradeScripts(walk(BASTION_UPGRADE_SCRIPTS, (p) => p.endsWith('.cs')), warn);
+
+  // Both reference kinds appear: a Unity guid for a plain asset field, a Quantum
+  // asset guid for a reference held inside a prototype.
+  const statusNameOf = (node) => {
+    if (!node || typeof node !== 'object') return null;
+    if (node.guid) return statusNames.byUnityGuid.get(node.guid) ?? null;
+    const id = node.Data?.Id?.Value ?? node.Id?.Value;
+    return id ? (statusNames.byQuantumGuid.get(String(id)) ?? null) : null;
+  };
+
+  const upgrades = [];
+  for (const { file, doc } of loadDocs(walk(BASTION_UPGRADE_ASSETS, isAsset))) {
+    const b = doc.body;
+    if (!b?.Levels) continue;
+
+    // Resolved through m_Script rather than m_EditorClassIdentifier: SharpStrike's
+    // stored class name is stale and names a type that no longer exists.
+    const scriptPath = guidIndex.get(scriptGuid(doc));
+    const className = scriptPath && basename(scriptPath, '.cs');
+    const script = className && scripts.get(className);
+    if (!script) { warn(`Bastion upgrade ${basename(file, '.asset')} has no readable script — skipped`); continue; }
+
+    const name = className.replace(/^BastionUpgrade/, '');
+    const key = cleanKey(name);
+
+    const levels = b.Levels.map((level, index) => ({
+      level: index + 1,
+      lines: effectsForLevel(script, level, statusNameOf, warn, name).map((line) => {
+        const term = `Bastion/Upgrades/${name}/${line.labelKey}`;
+        const template = L.get(term);
+        if (template === undefined) {
+          warn(`Bastion upgrade ${name}: no localized string for ${term}`);
+          return null;
+        }
+        return fillUpgradeLine(template, line.values, warn, `${name}/${line.labelKey}`);
+      }).filter(Boolean),
+    }));
+
+    upgrades.push({
+      key,
+      name: L.get(`Bastion/Upgrades/${name}`) ?? prettify(name),
+      icon: queueIcon(b.Icon, guidIndex, 'bastion', key),
+      rarity: PLAYER_UPGRADE_RARITIES[b.Rarity ?? 0] ?? 'Common',
+      category: PLAYER_UPGRADE_CATEGORIES[b.Category ?? 0] ?? 'Offensive',
+      maxLevel: levels.length,
+      levels,
+    });
+  }
+
+  upgrades.sort((a, b) => PLAYER_UPGRADE_RARITIES.indexOf(a.rarity) - PLAYER_UPGRADE_RARITIES.indexOf(b.rarity)
+    || a.name.localeCompare(b.name));
+  return upgrades;
 }
 
 // ----------------------------------------------------------- status effects
@@ -1636,7 +1850,7 @@ function extractLocalized(L, structural) {
   const { items, byGuid: itemsByGuid, fileByKey } = extractItems(guidIndex, L);
   const sets = extractSets(L, itemsByGuid);
   const { tables, byQuantumGuid } = extractLootTables(guidIndex, L, itemsByGuid, spawns, resourcePrefabs);
-  const { monsters, hidden, byGuid: monstersByGuid, displayByKey } = extractMonsters({
+  const { monsters, hidden, byGuid: monstersByGuid, displayByKey, keyByPrefab } = extractMonsters({
     guidIndex, quantumIndex, en: L, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons,
   });
   const banners = extractSummons(L, monstersByGuid, itemsByGuid);
@@ -1644,10 +1858,14 @@ function extractLocalized(L, structural) {
   const statuses = extractStatusEffects(guidIndex, L);
   const talents = extractTalents(guidIndex, L);
   const buildings = extractBuildings(guidIndex, L, itemsByGuid);
-  const gamemodes = extractGameModes(guidIndex, L, {
+  const monsterLookup = {
     linkable: new Set(monsters.map((m) => m.key)),
     display: displayByKey,
-  }, generators, itemsByGuid);
+    byPrefab: keyByPrefab,
+  };
+  const gamemodes = extractGameModes(guidIndex, L, monsterLookup, generators, itemsByGuid);
+  const bastion = extractBastion(guidIndex, L, monsterLookup);
+  if (bastion) gamemodes.push(bastion);
 
   return { items, sets, tables, monsters, hidden, banners, recipes, statuses, talents, buildings, gamemodes, itemsByGuid, fileByKey };
 }
@@ -1712,6 +1930,7 @@ function collectVocabulary(p) {
     group: uniq(p.statuses.map((s) => s.group)),
     buildingCategory: uniq(p.buildings.map((b) => b.category)),
     setKind: uniq(p.gamemodes.flatMap((m) => m.groups.map((g) => g.setKind))),
+    upgradeCategory: uniq(p.gamemodes.flatMap((m) => (m.bastion?.upgrades ?? []).map((u) => u.category))),
     enemyType: uniq(p.gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels.flatMap((l) => l.waves.flatMap((w) => w.enemies.map((e) => e.type)))))))
   };
 }

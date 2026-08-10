@@ -8,7 +8,6 @@
   "nav.talents": "Talentos",
   "nav.status": "Status",
   "nav.modes": "Modos",
-
   "search.placeholder": "Buscar itens, monstros, receitas…",
   "search.label": "Buscar",
   "theme.toggle": "Alternar tema",
@@ -16,7 +15,6 @@
   "loading": "Carregando os dados do jogo…",
   "footer.generated": "Dados gerados em {date}",
   "footer.tagline": "Gerado diretamente a partir do jogo",
-
   "home.title": "Wiki de Pixel Chronicles",
   "home.subtitle": "Todos os itens, monstros, chances de drop e receitas, lidos direto do projeto do jogo.",
   "home.tile.items": "Itens",
@@ -29,7 +27,6 @@
   "home.tile.levels": "Fases de aventura",
   "home.toughest": "Monstros mais fortes",
   "home.bestGear": "Equipamento lendário e relíquia",
-
   "filter.all": "Todos",
   "filter.sort": "Ordenar",
   "filter.shown": "{n} exibidos",
@@ -42,13 +39,11 @@
   "filter.category": "Categoria",
   "filter.station": "Oficina",
   "filter.group": "Grupo",
-
   "sort.name": "Nome",
   "sort.rarity": "Raridade",
   "sort.attack": "Ataque",
   "sort.defense": "Defesa",
   "sort.health": "Vida",
-
   "items.title": "Itens",
   "items.subtitle": "{n} itens — atributos, raridade, onde caem e como são fabricados.",
   "items.empty": "Nenhum item corresponde a estes filtros.",
@@ -66,7 +61,6 @@
   "item.toolType": "Tipo de ferramenta",
   "item.toolTier": "Nível da ferramenta",
   "item.toolDamage": "Dano da ferramenta",
-
   "col.monster": "Monstro",
   "col.drops": "Loot",
   "col.source": "Fonte",
@@ -93,7 +87,6 @@
   "col.prop": "Elemento",
   "col.tier": "Nível",
   "col.difficulty": "Dificuldade",
-
   "monsters.title": "Monstros",
   "monsters.subtitle": "{n} monstros, {summonable} deles invocáveis — vários não aparecem em nenhuma fase de combate e só podem ser invocados. Os atributos base são os valores de nível 1 no prefab, antes dos multiplicadores aplicados por fase.",
   "monster.baseStats": "Atributos base (nível 1)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "Sem tabela de loot própria. Os chefes soltam o loot pelo grupo de recompensas da fase.",
   "monster.obtainable": "Disponível",
   "monster.notObtainable": "Indisponível",
-
   "loot.title": "Tabelas de loot",
   "loot.subtitle": "{n} tabelas. As chances são por abate ou por coleta, listadas para cada dificuldade.",
   "loot.dropsItem": "Solta o item",
@@ -124,17 +116,14 @@
   "loot.openMonster": "Ver o monstro →",
   "loot.entries": "{n} entradas",
   "loot.entries.one": "1 entrada",
-
   "recipes.title": "Receitas",
   "recipes.subtitle": "{n} receitas.",
   "recipe.output": "Produz",
   "recipe.openRecipe": "Ver a receita →",
   "recipe.openItem": "Ver o item →",
   "recipe.subParts": "Fabricado com peças fabricadas",
-
   "sets.title": "Conjuntos de itens",
   "sets.subtitle": "{n} conjuntos. Usar todas as peças concede o bônus indicado.",
-
   "buildings.title": "Construções",
   "buildings.subtitle": "{n} construções que você pode comprar. As que começam em ruínas na sua ilha e são reparadas em vez de compradas ficam de fora.",
   "building.buy": "Compra",
@@ -143,18 +132,15 @@
   "building.upgrades": "Melhorias",
   "building.free": "grátis",
   "building.instant": "imediato",
-
   "status.title": "Status",
   "status.subtitle": "{n} efeitos — {buffs} buffs e {debuffs} debuffs. Os valores são os mesmos que as dicas do jogo mostram.",
   "status.noDescription": "Sem descrição.",
   "status.every": "a cada {n}s",
   "status.buffs": "Buffs",
   "status.debuffs": "Debuffs",
-
   "talents.title": "Talentos",
   "talents.subtitle": "{n} talentos. Cada rank substitui o anterior — os valores não se acumulam.",
   "talents.ranks": "{n} ranks",
-
   "modes.title": "Modos de jogo",
   "modes.subtitle": "Somente o conteúdo lançado é listado. Locais cujas ondas ainda estão vazias na build ficam de fora e aparecerão aqui por conta própria quando forem preenchidos.",
   "mode.levels": "{n} fases",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "Concluir este nível sorteia um acessório: primeiro um nível, depois uma raridade, de forma independente.",
   "mode.tierN": "Nível {n}",
   "mode.lootPool": "Loot — {name}",
-
   "error.notFound": "Não encontrado",
   "error.noSuch": "Nenhum {kind} chamado “{key}”.",
   "error.backHome": "Voltar ao início do wiki →",
@@ -180,7 +165,6 @@
   "error.staleCache": "Seu navegador pode estar guardando uma versão antiga do wiki. Recarregue com {shortcut}.",
   "error.reportBug": "Se continuar acontecendo, vale a pena relatar o bug:",
   "error.loadFailed": "Não foi possível carregar os dados do wiki.",
-
   "kind.item": "item",
   "kind.monster": "monstro",
   "kind.recipe": "receita",
@@ -188,7 +172,6 @@
   "kind.gameMode": "modo de jogo",
   "kind.location": "local",
   "kind.page": "página",
-
   "hit.Item": "Item",
   "hit.Monster": "Monstro",
   "hit.Recipe": "Receita",
@@ -200,7 +183,6 @@
   "hit.Debuff": "Debuff",
   "hit.Mode": "Modo",
   "hit.Chapter": "Capítulo",
-
   "vocab.rarity.Relic": "Relíquia",
   "vocab.element.Neutral": "Neutro",
   "vocab.category.Material": "Material",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "Nível",
   "vocab.enemyType.Basic": "Normal",
   "vocab.enemyType.Boss": "Chefe",
-  "vocab.enemyType.Elite": "Elite"
+  "vocab.enemyType.Elite": "Elite",
+  "bastion.subtitle": "Três jogadores defendem o Nexus no centro do mapa contra ondas infinitas. Nenhuma onda é escrita à mão: todas são geradas pelas fórmulas abaixo.",
+  "bastion.endless": "Infinito",
+  "bastion.waveEvery": "Uma onda a cada {n}s",
+  "bastion.upgradeEvery": "Uma melhoria a escolher a cada {n} ondas",
+  "bastion.bossEvery": "Um chefe a cada {n} ondas",
+  "bastion.assailantsFrom": "Assaltantes a partir da onda {n}",
+  "bastion.scaling": "Escalonamento das ondas",
+  "bastion.scalingNote": "Calculado com as fórmulas do próprio jogo para {players} jogadores. O orçamento compra inimigos do grupo; os multiplicadores valem para cada inimigo da onda.",
+  "bastion.budget": "Orçamento",
+  "bastion.statsMult": "Atributos dos inimigos",
+  "bastion.hpMult": "Vida dos inimigos",
+  "bastion.assailants": "Assaltantes",
+  "bastion.assailantNote": "Os assaltantes correm para o Nexus em vez de lutar. Têm {n}× a vida da onda.",
+  "bastion.bossNote": "As ondas de chefe acrescentam um chefe com {stats}× atributos e {health}× vida. Sorteia-se um chefe do elemento da onda, sem repetir até a rotação esgotar.",
+  "bastion.bosses": "Rotação de chefes",
+  "bastion.pools": "Grupos de inimigos",
+  "bastion.poolNote": "Sorteia-se um grupo por onda e o orçamento é gasto nos inimigos dele. Um inimigo só fica disponível a partir da sua onda mínima.",
+  "bastion.cost": "Custo",
+  "bastion.minWave": "Desde a onda",
+  "bastion.upgrades": "Melhorias",
+  "bastion.upgradesNote": "{n} melhorias. Cada escolha desbloqueia uma ou sobe um nível, e um nível substitui o anterior.",
+  "vocab.upgradeCategory.Offensive": "Ofensiva",
+  "vocab.upgradeCategory.Defensive": "Defensiva",
+  "vocab.upgradeCategory.Utility": "Utilidade",
+  "vocab.upgradeCategory.Specialist": "Especialista"
 }

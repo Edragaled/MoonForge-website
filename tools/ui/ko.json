@@ -8,7 +8,6 @@
   "nav.talents": "특성",
   "nav.status": "상태",
   "nav.modes": "모드",
-
   "search.placeholder": "아이템, 몬스터, 제작법 검색…",
   "search.label": "검색",
   "theme.toggle": "테마 전환",
@@ -16,7 +15,6 @@
   "loading": "게임 데이터를 불러오는 중…",
   "footer.generated": "데이터 생성일: {date}",
   "footer.tagline": "게임 빌드에서 바로 생성",
-
   "home.title": "Pixel Chronicles 위키",
   "home.subtitle": "모든 아이템, 몬스터, 드롭 확률, 제작법을 게임 프로젝트에서 직접 읽어옵니다.",
   "home.tile.items": "아이템",
@@ -29,7 +27,6 @@
   "home.tile.levels": "어드벤처 레벨",
   "home.toughest": "가장 강한 몬스터",
   "home.bestGear": "전설·유물 장비",
-
   "filter.all": "전체",
   "filter.sort": "정렬",
   "filter.shown": "{n}개 표시",
@@ -42,13 +39,11 @@
   "filter.category": "카테고리",
   "filter.station": "작업대",
   "filter.group": "그룹",
-
   "sort.name": "이름",
   "sort.rarity": "등급",
   "sort.attack": "공격력",
   "sort.defense": "방어력",
   "sort.health": "체력",
-
   "items.title": "아이템",
   "items.subtitle": "아이템 {n}개 — 능력치, 등급, 드롭처, 제작 방법.",
   "items.empty": "이 조건에 맞는 아이템이 없습니다.",
@@ -66,7 +61,6 @@
   "item.toolType": "도구 종류",
   "item.toolTier": "도구 단계",
   "item.toolDamage": "도구 피해량",
-
   "col.monster": "몬스터",
   "col.drops": "전리품",
   "col.source": "출처",
@@ -93,7 +87,6 @@
   "col.prop": "오브젝트",
   "col.tier": "단계",
   "col.difficulty": "난이도",
-
   "monsters.title": "몬스터",
   "monsters.subtitle": "몬스터 {n}마리, 그중 {summonable}마리 소환 가능 — 전투 레벨에 등장하지 않고 소환으로만 얻는 몬스터도 있습니다. 기본 능력치는 프리팹의 1레벨 값이며, 스테이지별 배율을 적용하기 전 수치입니다.",
   "monster.baseStats": "기본 능력치 (1레벨)",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "전용 전리품 표가 없습니다. 보스는 스테이지 보상 풀을 통해 드롭합니다.",
   "monster.obtainable": "획득 가능",
   "monster.notObtainable": "획득 불가",
-
   "loot.title": "전리품 표",
   "loot.subtitle": "표 {n}개. 확률은 1회 처치 또는 채집 기준이며 난이도별로 표시됩니다.",
   "loot.dropsItem": "드롭 아이템",
@@ -124,17 +116,14 @@
   "loot.openMonster": "몬스터 열기 →",
   "loot.entries": "항목 {n}개",
   "loot.entries.one": "항목 1개",
-
   "recipes.title": "제작법",
   "recipes.subtitle": "제작법 {n}개.",
   "recipe.output": "산출량",
   "recipe.openRecipe": "제작법 열기 →",
   "recipe.openItem": "아이템 열기 →",
   "recipe.subParts": "제작한 부품으로 만듦",
-
   "sets.title": "아이템 세트",
   "sets.subtitle": "세트 {n}개. 모든 부위를 착용하면 표시된 보너스를 얻습니다.",
-
   "buildings.title": "건물",
   "buildings.subtitle": "구매할 수 있는 건물 {n}개. 섬에서 폐허로 시작해 구매가 아니라 수리로 얻는 건물은 제외했습니다.",
   "building.buy": "구매",
@@ -143,18 +132,15 @@
   "building.upgrades": "업그레이드",
   "building.free": "무료",
   "building.instant": "즉시",
-
   "status.title": "상태 효과",
   "status.subtitle": "효과 {n}개 — 버프 {buffs}개, 디버프 {debuffs}개. 수치는 게임 내 툴팁과 동일합니다.",
   "status.noDescription": "설명 없음.",
   "status.every": "{n}초마다",
   "status.buffs": "버프",
   "status.debuffs": "디버프",
-
   "talents.title": "특성",
   "talents.subtitle": "특성 {n}개. 각 등급은 이전 등급을 대체합니다 — 수치는 누적되지 않습니다.",
   "talents.ranks": "{n}등급",
-
   "modes.title": "게임 모드",
   "modes.subtitle": "출시된 콘텐츠만 표시합니다. 빌드에서 웨이브가 아직 비어 있는 지역은 제외되며, 채워지면 여기에 자동으로 나타납니다.",
   "mode.levels": "레벨 {n}개",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "이 단계를 클리어하면 장신구 1개를 추첨합니다. 단계와 등급은 각각 독립적으로 뽑습니다.",
   "mode.tierN": "{n}단계",
   "mode.lootPool": "전리품 — {name}",
-
   "error.notFound": "찾을 수 없음",
   "error.noSuch": "“{key}”라는 {kind}이(가) 없습니다.",
   "error.backHome": "위키 홈으로 →",
@@ -180,7 +165,6 @@
   "error.staleCache": "브라우저가 예전 버전의 위키를 갖고 있을 수 있습니다. {shortcut}로 새로 고침하세요.",
   "error.reportBug": "계속 발생하면 제보할 만한 버그입니다:",
   "error.loadFailed": "위키 데이터를 불러올 수 없습니다.",
-
   "kind.item": "아이템",
   "kind.monster": "몬스터",
   "kind.recipe": "제작법",
@@ -188,7 +172,6 @@
   "kind.gameMode": "게임 모드",
   "kind.location": "지역",
   "kind.page": "페이지",
-
   "hit.Item": "아이템",
   "hit.Monster": "몬스터",
   "hit.Recipe": "제작법",
@@ -200,7 +183,6 @@
   "hit.Debuff": "디버프",
   "hit.Mode": "모드",
   "hit.Chapter": "챕터",
-
   "vocab.rarity.Relic": "유물",
   "vocab.element.Neutral": "무속성",
   "vocab.category.Material": "재료",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "단계",
   "vocab.enemyType.Basic": "일반",
   "vocab.enemyType.Boss": "보스",
-  "vocab.enemyType.Elite": "정예"
+  "vocab.enemyType.Elite": "정예",
+  "bastion.subtitle": "세 명이 맵 중앙의 넥서스를 지키며 끝없는 웨이브를 막아냅니다. 웨이브는 직접 만든 것이 아니라 모두 아래 공식으로 생성됩니다.",
+  "bastion.endless": "무한",
+  "bastion.waveEvery": "{n}초마다 웨이브 1회",
+  "bastion.upgradeEvery": "{n} 웨이브마다 강화 1개 선택",
+  "bastion.bossEvery": "{n} 웨이브마다 보스",
+  "bastion.assailantsFrom": "{n} 웨이브부터 돌격병",
+  "bastion.scaling": "웨이브 성장",
+  "bastion.scalingNote": "{players}인 기준으로 게임과 동일한 공식으로 계산했습니다. 예산으로 풀에서 적을 사고, 배율은 해당 웨이브의 모든 적에게 적용됩니다.",
+  "bastion.budget": "예산",
+  "bastion.statsMult": "적 능력치",
+  "bastion.hpMult": "적 체력",
+  "bastion.assailants": "돌격병",
+  "bastion.assailantNote": "돌격병은 싸우지 않고 넥서스로 돌진합니다. 해당 웨이브 체력의 {n}배를 가집니다.",
+  "bastion.bossNote": "보스 웨이브에는 능력치 {stats}배, 체력 {health}배의 보스가 1마리 추가됩니다. 해당 웨이브 속성의 보스 중에서 뽑고, 한 바퀴 돌기 전까지 중복되지 않습니다.",
+  "bastion.bosses": "보스 로테이션",
+  "bastion.pools": "적 풀",
+  "bastion.poolNote": "웨이브마다 풀 하나를 뽑고, 그 안의 적에게 예산을 씁니다. 적은 최소 웨이브에 도달해야 등장합니다.",
+  "bastion.cost": "비용",
+  "bastion.minWave": "등장 웨이브",
+  "bastion.upgrades": "강화",
+  "bastion.upgradesNote": "강화 {n}종. 선택할 때마다 하나를 해금하거나 한 단계 올리며, 단계는 이전 단계를 대체합니다.",
+  "vocab.upgradeCategory.Offensive": "공격",
+  "vocab.upgradeCategory.Defensive": "방어",
+  "vocab.upgradeCategory.Utility": "유틸리티",
+  "vocab.upgradeCategory.Specialist": "특화"
 }

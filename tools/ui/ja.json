@@ -8,7 +8,6 @@
   "nav.talents": "才能",
   "nav.status": "状態",
   "nav.modes": "モード",
-
   "search.placeholder": "アイテム・モンスター・レシピを検索…",
   "search.label": "検索",
   "theme.toggle": "配色を切り替える",
@@ -16,7 +15,6 @@
   "loading": "ゲームデータを読み込み中…",
   "footer.generated": "データ生成日：{date}",
   "footer.tagline": "ゲーム本体から直接生成",
-
   "home.title": "Pixel Chronicles Wiki",
   "home.subtitle": "すべてのアイテム、モンスター、ドロップ率、レシピをゲームプロジェクトから直接読み取っています。",
   "home.tile.items": "アイテム",
@@ -29,7 +27,6 @@
   "home.tile.levels": "アドベンチャーのレベル",
   "home.toughest": "最も強いモンスター",
   "home.bestGear": "レジェンダリー・レリック装備",
-
   "filter.all": "すべて",
   "filter.sort": "並べ替え",
   "filter.shown": "{n} 件表示",
@@ -42,13 +39,11 @@
   "filter.category": "カテゴリ",
   "filter.station": "作業台",
   "filter.group": "グループ",
-
   "sort.name": "名前",
   "sort.rarity": "レアリティ",
   "sort.attack": "攻撃",
   "sort.defense": "防御",
   "sort.health": "HP",
-
   "items.title": "アイテム",
   "items.subtitle": "{n} 個のアイテム — ステータス、レアリティ、ドロップ元、作り方。",
   "items.empty": "この条件に合うアイテムはありません。",
@@ -66,7 +61,6 @@
   "item.toolType": "ツール種別",
   "item.toolTier": "ツール段階",
   "item.toolDamage": "ツール威力",
-
   "col.monster": "モンスター",
   "col.drops": "ドロップ",
   "col.source": "入手元",
@@ -93,7 +87,6 @@
   "col.prop": "オブジェクト",
   "col.tier": "段階",
   "col.difficulty": "難易度",
-
   "monsters.title": "モンスター",
   "monsters.subtitle": "{n} 体のモンスター、うち {summonable} 体が召喚可能 — 戦闘レベルに登場せず召喚でしか手に入らないものもいます。基礎ステータスはプレハブ上のレベル1の値で、ステージごとの倍率を適用する前の数値です。",
   "monster.baseStats": "基礎ステータス（レベル1）",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "専用のドロップテーブルはありません。ボスはステージの報酬プールからドロップします。",
   "monster.obtainable": "入手可能",
   "monster.notObtainable": "入手不可",
-
   "loot.title": "ドロップテーブル",
   "loot.subtitle": "{n} 個のテーブル。確率は 1 体討伐または 1 回採取あたりで、難易度ごとに表示しています。",
   "loot.dropsItem": "ドロップするアイテム",
@@ -124,17 +116,14 @@
   "loot.openMonster": "モンスターを開く →",
   "loot.entries": "{n} 項目",
   "loot.entries.one": "1 項目",
-
   "recipes.title": "レシピ",
   "recipes.subtitle": "{n} 個のレシピ。",
   "recipe.output": "生産数",
   "recipe.openRecipe": "レシピを開く →",
   "recipe.openItem": "アイテムを開く →",
   "recipe.subParts": "製作品から作られる",
-
   "sets.title": "アイテムセット",
   "sets.subtitle": "{n} 個のセット。すべての部位を装備すると記載のボーナスが付きます。",
-
   "buildings.title": "建物",
   "buildings.subtitle": "購入できる建物 {n} 件。島で廃墟として始まり、購入ではなく修理する建物は含みません。",
   "building.buy": "購入",
@@ -143,18 +132,15 @@
   "building.upgrades": "アップグレード",
   "building.free": "無料",
   "building.instant": "即時",
-
   "status.title": "状態効果",
   "status.subtitle": "{n} 個の効果 — バフ {buffs} 個、デバフ {debuffs} 個。数値はゲーム内のツールチップと同じです。",
   "status.noDescription": "説明なし。",
   "status.every": "{n} 秒ごと",
   "status.buffs": "バフ",
   "status.debuffs": "デバフ",
-
   "talents.title": "才能",
   "talents.subtitle": "{n} 個の才能。各ランクは前のランクを置き換えます — 数値は累積しません。",
   "talents.ranks": "{n} ランク",
-
   "modes.title": "ゲームモード",
   "modes.subtitle": "公開済みのコンテンツのみを掲載しています。ビルド内でウェーブが空のままの場所は除外され、内容が入りしだいここに自動で表示されます。",
   "mode.levels": "{n} レベル",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "この段階をクリアするとアクセサリーが 1 個抽選されます。段階とレアリティはそれぞれ独立して決まります。",
   "mode.tierN": "段階 {n}",
   "mode.lootPool": "ドロップ — {name}",
-
   "error.notFound": "見つかりません",
   "error.noSuch": "「{key}」という{kind}はありません。",
   "error.backHome": "Wiki のトップへ戻る →",
@@ -180,7 +165,6 @@
   "error.staleCache": "ブラウザが古い版の Wiki を保持している可能性があります。{shortcut} で再読み込みしてください。",
   "error.reportBug": "繰り返し起きる場合は、報告する価値のある不具合です：",
   "error.loadFailed": "Wiki のデータを読み込めませんでした。",
-
   "kind.item": "アイテム",
   "kind.monster": "モンスター",
   "kind.recipe": "レシピ",
@@ -188,7 +172,6 @@
   "kind.gameMode": "ゲームモード",
   "kind.location": "場所",
   "kind.page": "ページ",
-
   "hit.Item": "アイテム",
   "hit.Monster": "モンスター",
   "hit.Recipe": "レシピ",
@@ -200,7 +183,6 @@
   "hit.Debuff": "デバフ",
   "hit.Mode": "モード",
   "hit.Chapter": "チャプター",
-
   "vocab.rarity.Relic": "レリック",
   "vocab.element.Neutral": "無属性",
   "vocab.category.Material": "素材",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "段階",
   "vocab.enemyType.Basic": "通常",
   "vocab.enemyType.Boss": "ボス",
-  "vocab.enemyType.Elite": "エリート"
+  "vocab.enemyType.Elite": "エリート",
+  "bastion.subtitle": "3 人でマップ中央のネクサスを守り、無限に続くウェーブを迎え撃つモードです。ウェーブは手作業で組まれておらず、すべて下の式から生成されます。",
+  "bastion.endless": "無限",
+  "bastion.waveEvery": "{n} 秒ごとに 1 ウェーブ",
+  "bastion.upgradeEvery": "{n} ウェーブごとに強化を 1 つ選択",
+  "bastion.bossEvery": "{n} ウェーブごとにボス",
+  "bastion.assailantsFrom": "ウェーブ {n} から強襲個体",
+  "bastion.scaling": "ウェーブのスケーリング",
+  "bastion.scalingNote": "ゲーム内と同じ式で {players} 人時の値を計算しています。予算はプールから敵を購入し、倍率はそのウェーブの全ての敵に適用されます。",
+  "bastion.budget": "予算",
+  "bastion.statsMult": "敵ステータス",
+  "bastion.hpMult": "敵HP",
+  "bastion.assailants": "強襲個体",
+  "bastion.assailantNote": "強襲個体は戦わずネクサスへ突進します。そのウェーブの {n} 倍の HP を持ちます。",
+  "bastion.bossNote": "ボスウェーブではステータス {stats} 倍・HP {health} 倍のボスが 1 体加わります。そのウェーブの属性のボスから抽選され、一巡するまで重複しません。",
+  "bastion.bosses": "ボスのローテーション",
+  "bastion.pools": "敵プール",
+  "bastion.poolNote": "ウェーブごとにプールが 1 つ抽選され、その中の敵に予算を使います。敵は最小ウェーブに達するまで出現しません。",
+  "bastion.cost": "コスト",
+  "bastion.minWave": "出現ウェーブ",
+  "bastion.upgrades": "強化",
+  "bastion.upgradesNote": "強化は {n} 種類。選択ごとに 1 つ解放するか 1 段階上げ、段階は前の段階を置き換えます。",
+  "vocab.upgradeCategory.Offensive": "攻撃",
+  "vocab.upgradeCategory.Defensive": "防御",
+  "vocab.upgradeCategory.Utility": "汎用",
+  "vocab.upgradeCategory.Specialist": "特化"
 }

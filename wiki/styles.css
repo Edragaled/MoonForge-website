@@ -562,6 +562,28 @@ td .with-icon > .sprite { height: 22px; max-width: 22px; flex: none; }
 }
 .status-none { margin: 6px 0 0; font-size: 13px; color: var(--text-faint); }
 
+/* ---------------------------------------------------------------- bastion */
+
+.bastion-rules { margin: 14px 0 26px; }
+.bastion-rules .badge { font-size: 12px; padding: 5px 10px; }
+
+/* An upgrade card is a status card whose left edge carries its rarity instead of
+   a buff/debuff group. */
+.status.s-up { --group: var(--rarity); }
+.status.s-up .status-name { display: flex; align-items: baseline; }
+.status.s-up > .status-body > .badge { margin: 6px 0 0; }
+
+.upgrade-levels {
+  margin: 8px 0 0;
+  padding: 0 0 0 20px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.upgrade-levels li { margin-top: 4px; }
+.upgrade-levels li::marker { color: var(--rarity); font: 700 11px var(--mono); }
+/* One effect per line: a rank often grants two or three at once. */
+.upgrade-levels span { display: block; }
+
 /* Talent ranks: roman numerals read as a column of labels, not as figures. */
 td.rank {
   font: 700 12px/1 var(--mono);

@@ -360,6 +360,54 @@ placeholder renders as a literal `{n}` on the page.
 Nothing else is translated: the marketing and legal pages at the repository root
 are English only. Terms and a privacy policy are not something to machine-translate.
 
+## Bastion has no authored waves
+
+Every other mode is a list: chapters hold levels, levels hold waves, and the
+extractor reads them. Bastion holds none of that. `DefaultBastionConfig` holds the
+*formulas*, and the run generates its waves from them, so the wiki reproduces the
+formulas instead of listing content that does not exist:
+
+- budget `BaseBudget + BudgetPerWave × waveIndex`, spent on enemies from one pool;
+- enemy stats `BaseStats + StatsPerWave × waveIndex`;
+- enemy HP `BaseHealthMultiplier × HealthGrowthBase^waveIndex × playerMultiplier`;
+- assailants `round(1 + AssailantGrowth × (waveIndex − FirstAssailantWave)^AssailantCurvePower)`.
+
+`waveIndex` is zero-based, which is why "assailants from wave 11" comes out of
+`FirstAssailantWave: 10`. The milestone table is computed at 3 players from the
+exact fixed-point values; the tuning numbers shown beside it are rounded only on
+the way out, so a rounded growth base can never skew the curve. Wave length is not
+authored at all — `GetWaveInterval()` returns a hardcoded 45.
+
+### The 22 upgrades describe themselves through their own code
+
+Each upgrade asset holds a `Levels[]` array of a struct that is *different for
+every upgrade*, and the mapping from those fields to localized lines lives in the
+upgrade's `PopulateEffectsAtLevel`. `lib/bastion.mjs` reads that method and replays
+it: which lines a level shows (`if (level.Defense != 0)`, `if (level.X.Data.IsValid)`,
+`foreach (var e in level.…)`), which field fills which `{[PLACEHOLDER]}`, and in
+which of the three formats. It also resolves `var` aliases, class constants like
+`_healthRatioThreshold`, and the two labels built from a status effect's own
+`NameKey`.
+
+`UpgradeValue.Seconds` **truncates** (`value.AsInt`) where `Percent` rounds; the
+wiki does the same, so `7.5s` reads as `7s` in both.
+
+Asset-to-script is resolved through `m_Script`, not `m_EditorClassIdentifier`:
+SharpStrike's stored class name is stale and names a type that no longer exists.
+
+### Two upgrade lines are wrong in the project, not in the wiki
+
+Both are reported as warnings every run rather than papered over:
+
+- **`ElementalBreak/IgnoreDamageReduction`** — the localized string is
+  "Ignore {[VALUE]} of the target's defense…", but the code adds that effect with
+  no `Values` at all, so nothing can fill `{[VALUE]}`. Either the string should
+  drop the placeholder or the effect should pass the value.
+- **`Hunter` traps** — the label is built from the applied status effect's
+  `NameKey`, which is `Bleed`, but the only matching term is
+  `Bastion/Upgrades/Hunter/BleedDecrease`. So the bleed line has no string and is
+  left out. Renaming the term to `Hunter/Bleed` fixes it.
+
 ## Status effect descriptions are assembled, not stored
 
 No string in the project reads "+30% Total Attack". Three pieces make it:

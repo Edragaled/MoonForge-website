@@ -8,7 +8,6 @@
   "nav.talents": "天赋",
   "nav.status": "状态",
   "nav.modes": "模式",
-
   "search.placeholder": "搜索物品、怪物、配方…",
   "search.label": "搜索",
   "theme.toggle": "切换配色",
@@ -16,7 +15,6 @@
   "loading": "正在加载游戏数据…",
   "footer.generated": "数据生成于 {date}",
   "footer.tagline": "直接从游戏本体生成",
-
   "home.title": "Pixel Chronicles 维基",
   "home.subtitle": "所有物品、怪物、掉落概率和配方，全部直接读取自游戏项目。",
   "home.tile.items": "物品",
@@ -29,7 +27,6 @@
   "home.tile.levels": "冒险关卡",
   "home.toughest": "最强怪物",
   "home.bestGear": "传说与遗物装备",
-
   "filter.all": "全部",
   "filter.sort": "排序",
   "filter.shown": "显示 {n} 个",
@@ -42,13 +39,11 @@
   "filter.category": "类别",
   "filter.station": "工作台",
   "filter.group": "分组",
-
   "sort.name": "名称",
   "sort.rarity": "稀有度",
   "sort.attack": "攻击",
   "sort.defense": "防御",
   "sort.health": "生命",
-
   "items.title": "物品",
   "items.subtitle": "{n} 件物品 — 属性、稀有度、掉落来源与制作方式。",
   "items.empty": "没有物品符合这些筛选条件。",
@@ -66,7 +61,6 @@
   "item.toolType": "工具类型",
   "item.toolTier": "工具等阶",
   "item.toolDamage": "工具伤害",
-
   "col.monster": "怪物",
   "col.drops": "掉落",
   "col.source": "来源",
@@ -93,7 +87,6 @@
   "col.prop": "对象",
   "col.tier": "等阶",
   "col.difficulty": "难度",
-
   "monsters.title": "怪物",
   "monsters.subtitle": "{n} 只怪物，其中 {summonable} 只可召唤 — 有些不会出现在任何战斗关卡，只能通过召唤获得。基础属性是预制体上的 1 级数值，尚未应用关卡的等级倍率。",
   "monster.baseStats": "基础属性（1 级）",
@@ -108,7 +101,6 @@
   "monster.noLootTable": "没有专属掉落表。首领通过关卡的奖励池掉落。",
   "monster.obtainable": "可获得",
   "monster.notObtainable": "无法获得",
-
   "loot.title": "掉落表",
   "loot.subtitle": "{n} 张表。概率按每次击杀或每次采集计算，并按难度分别列出。",
   "loot.dropsItem": "掉落物品",
@@ -124,17 +116,14 @@
   "loot.openMonster": "打开怪物 →",
   "loot.entries": "{n} 个条目",
   "loot.entries.one": "1 个条目",
-
   "recipes.title": "配方",
   "recipes.subtitle": "{n} 个配方。",
   "recipe.output": "产出",
   "recipe.openRecipe": "打开配方 →",
   "recipe.openItem": "打开物品 →",
   "recipe.subParts": "由制作出的部件合成",
-
   "sets.title": "物品套装",
   "sets.subtitle": "{n} 套。集齐全部部件即可获得所列加成。",
-
   "buildings.title": "建筑",
   "buildings.subtitle": "{n} 座可购买的建筑。那些在岛上以废墟开始、只能修复而非购买的建筑不在此列。",
   "building.buy": "购买",
@@ -143,18 +132,15 @@
   "building.upgrades": "升级",
   "building.free": "免费",
   "building.instant": "立即",
-
   "status.title": "状态效果",
   "status.subtitle": "{n} 个效果 — {buffs} 个增益、{debuffs} 个减益。数值与游戏内提示完全一致。",
   "status.noDescription": "暂无说明。",
   "status.every": "每 {n} 秒",
   "status.buffs": "增益",
   "status.debuffs": "减益",
-
   "talents.title": "天赋",
   "talents.subtitle": "{n} 个天赋。每一阶取代前一阶 — 数值不会叠加。",
   "talents.ranks": "{n} 阶",
-
   "modes.title": "游戏模式",
   "modes.subtitle": "仅列出已上线的内容。构建中波次仍为空的地点会被排除，填好后会自动出现在这里。",
   "mode.levels": "{n} 个关卡",
@@ -172,7 +158,6 @@
   "mode.accessoryNote": "通过此等阶会抽取一件饰品：先抽等阶，再抽稀有度，两者互不影响。",
   "mode.tierN": "第 {n} 阶",
   "mode.lootPool": "掉落 — {name}",
-
   "error.notFound": "未找到",
   "error.noSuch": "没有名为“{key}”的{kind}。",
   "error.backHome": "返回维基首页 →",
@@ -180,7 +165,6 @@
   "error.staleCache": "你的浏览器可能保留着旧版维基。请用 {shortcut} 重新加载。",
   "error.reportBug": "如果反复出现，这个问题值得反馈：",
   "error.loadFailed": "无法加载维基数据。",
-
   "kind.item": "物品",
   "kind.monster": "怪物",
   "kind.recipe": "配方",
@@ -188,7 +172,6 @@
   "kind.gameMode": "游戏模式",
   "kind.location": "地点",
   "kind.page": "页面",
-
   "hit.Item": "物品",
   "hit.Monster": "怪物",
   "hit.Recipe": "配方",
@@ -200,7 +183,6 @@
   "hit.Debuff": "减益",
   "hit.Mode": "模式",
   "hit.Chapter": "章节",
-
   "vocab.rarity.Relic": "遗物",
   "vocab.element.Neutral": "无属性",
   "vocab.category.Material": "材料",
@@ -222,5 +204,30 @@
   "vocab.setKind.Tier": "等阶",
   "vocab.enemyType.Basic": "普通",
   "vocab.enemyType.Boss": "首领",
-  "vocab.enemyType.Elite": "精英"
+  "vocab.enemyType.Elite": "精英",
+  "bastion.subtitle": "三名玩家守护地图中央的枢晶，抵挡无尽的波次。所有波次都不是手工编排的，而是由下方公式生成。",
+  "bastion.endless": "无尽",
+  "bastion.waveEvery": "每 {n} 秒一波",
+  "bastion.upgradeEvery": "每 {n} 波选择一次强化",
+  "bastion.bossEvery": "每 {n} 波一个首领",
+  "bastion.assailantsFrom": "第 {n} 波起出现强袭者",
+  "bastion.scaling": "波次成长",
+  "bastion.scalingNote": "按 {players} 人、使用游戏本身的公式计算。预算用于从池中购买敌人；倍率作用于该波的每个敌人。",
+  "bastion.budget": "预算",
+  "bastion.statsMult": "敌人属性",
+  "bastion.hpMult": "敌人生命",
+  "bastion.assailants": "强袭者",
+  "bastion.assailantNote": "强袭者不与你交战，而是直冲枢晶。其生命为该波的 {n} 倍。",
+  "bastion.bossNote": "首领波会加入一名属性 {stats} 倍、生命 {health} 倍的首领。从该波属性的首领中抽取，轮完一遍前不重复。",
+  "bastion.bosses": "首领轮换",
+  "bastion.pools": "敌人池",
+  "bastion.poolNote": "每波抽取一个池，再用预算购买其中的敌人。敌人只有在达到其最低波次后才会出现。",
+  "bastion.cost": "花费",
+  "bastion.minWave": "起始波次",
+  "bastion.upgrades": "强化",
+  "bastion.upgradesNote": "共 {n} 项强化。每次选择会解锁一项或提升一级，且新一级取代前一级。",
+  "vocab.upgradeCategory.Offensive": "进攻",
+  "vocab.upgradeCategory.Defensive": "防守",
+  "vocab.upgradeCategory.Utility": "辅助",
+  "vocab.upgradeCategory.Specialist": "专精"
 }

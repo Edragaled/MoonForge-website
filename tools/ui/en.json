@@ -1,6 +1,5 @@
 {
   "_comment": "Wiki chrome. These strings do not exist in the game's spreadsheet — the game has no wiki — so they are kept here. en.json is the reference: extract.mjs warns about any key another language is missing. Placeholders in braces are substituted at render time and must be kept.",
-
   "nav.items": "Items",
   "nav.monsters": "Monsters",
   "nav.loot": "Loot",
@@ -10,7 +9,6 @@
   "nav.talents": "Talents",
   "nav.status": "Status",
   "nav.modes": "Modes",
-
   "search.placeholder": "Search items, monsters, recipes…",
   "search.label": "Search",
   "theme.toggle": "Toggle colour scheme",
@@ -18,7 +16,6 @@
   "loading": "Loading game data…",
   "footer.generated": "Data generated {date}",
   "footer.tagline": "Generated straight from the game build",
-
   "home.title": "Pixel Chronicles Wiki",
   "home.subtitle": "Every item, monster, drop chance and recipe, read straight out of the game project.",
   "home.tile.items": "Items",
@@ -31,7 +28,6 @@
   "home.tile.levels": "Adventure levels",
   "home.toughest": "Toughest monsters",
   "home.bestGear": "Legendary & relic gear",
-
   "filter.all": "All",
   "filter.sort": "Sort",
   "filter.shown": "{n} shown",
@@ -44,13 +40,11 @@
   "filter.category": "Category",
   "filter.station": "Station",
   "filter.group": "Group",
-
   "sort.name": "Name",
   "sort.rarity": "Rarity",
   "sort.attack": "Attack",
   "sort.defense": "Defense",
   "sort.health": "Health",
-
   "items.title": "Items",
   "items.subtitle": "{n} items — stats, rarity, where they drop and how they are crafted.",
   "items.empty": "No item matches these filters.",
@@ -68,7 +62,6 @@
   "item.toolType": "Tool type",
   "item.toolTier": "Tool tier",
   "item.toolDamage": "Tool damage",
-
   "col.monster": "Monster",
   "col.drops": "Drops",
   "col.source": "Source",
@@ -95,7 +88,6 @@
   "col.prop": "Prop",
   "col.tier": "Tier",
   "col.difficulty": "Difficulty",
-
   "monsters.title": "Monsters",
   "monsters.subtitle": "{n} monsters, {summonable} of them summonable — several appear in no combat level and can only be summoned. Base stats are the level-1 values on the entity prefab, before the per-level multipliers a stage applies.",
   "monster.baseStats": "Base stats (level 1)",
@@ -110,7 +102,6 @@
   "monster.noLootTable": "No personal loot table. Bosses drop through their stage's reward pool instead.",
   "monster.obtainable": "Obtainable",
   "monster.notObtainable": "Not obtainable",
-
   "loot.title": "Loot tables",
   "loot.subtitle": "{n} tables. Chances are per kill or per harvest, listed for each difficulty.",
   "loot.dropsItem": "Drops item",
@@ -126,17 +117,14 @@
   "loot.openMonster": "Open monster →",
   "loot.entries": "{n} entries",
   "loot.entries.one": "1 entry",
-
   "recipes.title": "Recipes",
   "recipes.subtitle": "{n} recipes.",
   "recipe.output": "Output",
   "recipe.openRecipe": "Open recipe →",
   "recipe.openItem": "Open item →",
   "recipe.subParts": "Crafted from crafted parts",
-
   "sets.title": "Item sets",
   "sets.subtitle": "{n} sets. Wearing every piece grants the listed bonus.",
-
   "buildings.title": "Buildings",
   "buildings.subtitle": "{n} buildings you can buy. The ones that start as ruins on your island and are repaired rather than purchased are left out.",
   "building.buy": "Buy",
@@ -145,18 +133,15 @@
   "building.upgrades": "Upgrades",
   "building.free": "free",
   "building.instant": "instant",
-
   "status.title": "Status effects",
   "status.subtitle": "{n} effects — {buffs} buffs and {debuffs} debuffs. Values are the ones the game's own tooltips show.",
   "status.noDescription": "No description.",
   "status.every": "every {n}s",
   "status.buffs": "Buffs",
   "status.debuffs": "Debuffs",
-
   "talents.title": "Talents",
   "talents.subtitle": "{n} talents. Every rank replaces the one before it — the values are not cumulative.",
   "talents.ranks": "{n} ranks",
-
   "modes.title": "Game modes",
   "modes.subtitle": "Only released content is listed. Locations whose waves are still empty in the build are left out and will appear here on their own once they are filled in.",
   "mode.levels": "{n} levels",
@@ -174,7 +159,6 @@
   "mode.accessoryNote": "Clearing this tier rolls one accessory: a tier, then a rarity, drawn independently.",
   "mode.tierN": "Tier {n}",
   "mode.lootPool": "Loot — {name}",
-
   "error.notFound": "Not found",
   "error.noSuch": "No {kind} named “{key}”.",
   "error.backHome": "Back to the wiki home →",
@@ -182,7 +166,6 @@
   "error.staleCache": "Your browser may be holding an older version of the wiki. Reload with {shortcut}.",
   "error.reportBug": "If it keeps happening, this is a bug worth reporting:",
   "error.loadFailed": "Could not load the wiki data.",
-
   "kind.item": "item",
   "kind.monster": "monster",
   "kind.recipe": "recipe",
@@ -190,7 +173,6 @@
   "kind.gameMode": "game mode",
   "kind.location": "location",
   "kind.page": "page",
-
   "hit.Item": "Item",
   "hit.Monster": "Monster",
   "hit.Recipe": "Recipe",
@@ -202,7 +184,6 @@
   "hit.Debuff": "Debuff",
   "hit.Mode": "Mode",
   "hit.Chapter": "Chapter",
-
   "vocab.rarity.Relic": "Relic",
   "vocab.element.Neutral": "Neutral",
   "vocab.category.Material": "Material",
@@ -224,5 +205,30 @@
   "vocab.setKind.Tier": "Tier",
   "vocab.enemyType.Basic": "Basic",
   "vocab.enemyType.Boss": "Boss",
-  "vocab.enemyType.Elite": "Elite"
+  "vocab.enemyType.Elite": "Elite",
+  "bastion.subtitle": "Three players defend the Nexus at the centre of the map against endless waves. There is no authored wave list: every wave is generated from the formulas below.",
+  "bastion.endless": "Endless",
+  "bastion.waveEvery": "A wave every {n}s",
+  "bastion.upgradeEvery": "An upgrade choice every {n} waves",
+  "bastion.bossEvery": "A boss every {n} waves",
+  "bastion.assailantsFrom": "Assailants from wave {n}",
+  "bastion.scaling": "Wave scaling",
+  "bastion.scalingNote": "Computed with the game's own formulas at {players} players. Budget buys enemies from the pool; the multipliers apply to every enemy that wave.",
+  "bastion.budget": "Budget",
+  "bastion.statsMult": "Enemy stats",
+  "bastion.hpMult": "Enemy HP",
+  "bastion.assailants": "Assailants",
+  "bastion.assailantNote": "Assailants rush the Nexus instead of fighting. They carry {n}× the wave's HP.",
+  "bastion.bossNote": "Boss waves add one boss with {stats}× stats and {health}× HP. One boss of the wave's element is drawn, without repeats until the rotation runs out.",
+  "bastion.bosses": "Boss rotation",
+  "bastion.pools": "Enemy pools",
+  "bastion.poolNote": "One pool is drawn per wave, then the budget is spent on enemies from it. An enemy only becomes available once the wave reaches its minimum.",
+  "bastion.cost": "Cost",
+  "bastion.minWave": "From wave",
+  "bastion.upgrades": "Upgrades",
+  "bastion.upgradesNote": "{n} upgrades. Each pick either unlocks one or raises it a level, and a level replaces the one before it.",
+  "vocab.upgradeCategory.Offensive": "Offensive",
+  "vocab.upgradeCategory.Defensive": "Defensive",
+  "vocab.upgradeCategory.Utility": "Utility",
+  "vocab.upgradeCategory.Specialist": "Specialist"
 }
