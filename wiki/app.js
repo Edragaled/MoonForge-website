@@ -1009,8 +1009,11 @@ function renderMode(key) {
     const levels = g.sets.reduce((n, s) => n + s.levels.length, 0);
     const sub = [g.biome ? lb('biome', g.biome) : null,
       t(g.setKind === 'Tier' ? 'mode.tiers' : 'mode.levels', { n: nf(levels) })].filter(Boolean).join(' · ');
+    // Dungeons and the raid have their own artwork; a chapter is only numbered.
     return el(`<a class="card" href="#/chapter/${slug(g.key)}">
-      <span class="thumb" style="width:40px;height:40px;flex:none;font:600 15px var(--mono);color:var(--text-dim)">${single ? '' : index + 1}</span>
+      ${g.icon
+    ? thumb(g.icon, g.name)
+    : `<span class="thumb" style="width:40px;height:40px;flex:none;font:600 15px var(--mono);color:var(--text-dim)">${single ? '' : index + 1}</span>`}
       <span class="card-body">
         <span class="card-title">${esc(g.name)}</span>
         <span class="card-sub">${esc(sub)}</span>
@@ -1177,7 +1180,9 @@ function renderChapter(key, params) {
   const frag = el(`<div>
     <p class="crumbs"><a href="#/modes">${esc(t('modes.title'))}</a> <span class="arrow">/</span>
       <a href="#/mode/${slug(mode.key)}">${esc(mode.name)}</a></p>
-    <h1>${esc(chapter.name)}</h1>
+    ${chapter.icon
+    ? `<div class="detail-head">${thumb(chapter.icon, chapter.name)}<div><h1>${esc(chapter.name)}</h1></div></div>`
+    : `<h1>${esc(chapter.name)}</h1>`}
     <p class="subtitle">${chapter.biome ? `${esc(t('mode.biomePrefix', { biome: lb('biome', chapter.biome) }))} ` : ''}${esc(t('mode.wavesOrder'))}${
       mode.players > 1 ? ` ${esc(t('mode.playedBy', { n: mode.players }))}` : ''}</p>
     <div class="filters">

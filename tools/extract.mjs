@@ -1537,6 +1537,7 @@ function extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, opts) {
     groups.push({
       key: id.toLowerCase(),
       name: en.get(`${opts.nameKeyPrefix}/${id}`) ?? prettify(id),
+      icon: locationIcon(id),
       biome: null,
       setKind: opts.setLabel,
       sets: [{ label: opts.setLabel, levels }],
@@ -1545,6 +1546,16 @@ function extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, opts) {
 
   groups.sort((a, b) => a.name.localeCompare(b.name));
   return groups;
+}
+
+/**
+ * Every dungeon and the raid have their own icon, filed under the location's
+ * `_friendlyId`. The folder is called Dungeons but holds the raid's icon too.
+ */
+function locationIcon(id) {
+  const file = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Dungeons', `${id}.png`);
+  if (!existsSync(file)) { warn(`no icon for location ${id}`); return null; }
+  return queueIconFile(file, 'gamemodes', id.toLowerCase());
 }
 
 function destinationIcon(fileBase, name) {
