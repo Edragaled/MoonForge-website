@@ -13,6 +13,41 @@ const view = document.getElementById('view');
 const searchInput = document.getElementById('search');
 const suggestions = document.getElementById('suggestions');
 
+/* ------------------------------------------------------------ localization
+   Game text is translated in the payload itself — a language is a whole data
+   set, so `DB.items[0].name` is already in the right language. Only the wiki's
+   own chrome and the vocabulary labels are looked up here. */
+
+const LANG_KEY = 'pc-wiki-lang';
+
+/** The language whose payloads are loaded. Set before any render happens. */
+let LANG = 'en';
+
+/**
+ * A chrome string, with `{name}` placeholders filled from `vars`.
+ * Falls back to the key itself, which is ugly on purpose: a missing string should
+ * be obvious on the page rather than render as an empty gap.
+ */
+function t(key, vars) {
+  const raw = DB.meta?.strings?.[key] ?? key;
+  if (!vars) return raw;
+  return raw.replace(/\{(\w+)\}/g, (whole, name) => (name in vars ? String(vars[name]) : whole));
+}
+
+/** Plural helper: `{n} tables` / `1 table` share a key plus a `.one` variant. */
+const tn = (key, n, vars) => t(n === 1 && DB.meta?.strings?.[`${key}.one`] ? `${key}.one` : key, { n: nf(n), ...vars });
+
+/**
+ * A vocabulary label. The payloads carry the project's own identifiers so a
+ * filter in the URL survives a language change; the label is translated here.
+ */
+const lb = (kind, value) => (value == null || value === ''
+  ? '—'
+  : DB.meta?.labels?.[kind]?.[value] ?? value);
+
+/** `chipGroup` renders labels but keeps the untranslated value in the hash. */
+const labelsFor = (kind, values) => Object.fromEntries(values.map((v) => [v, lb(kind, v)]));
+
 /* ------------------------------------------------------------------- utils */
 
 const el = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content; };
@@ -23,7 +58,9 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => (
 
 const slug = (s) => encodeURIComponent(String(s));
 const cls = (s) => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '-');
-const nf = (n) => (n == null ? '—' : Number(n).toLocaleString('en-US'));
+const nf = (n) => (n == null ? '—' : Number(n).toLocaleString(LANG));
+/** Names sort by the reader's alphabet, not by code-point order. */
+const byName = (a, b) => String(a).localeCompare(String(b), LANG);
 const round = (n, d = 2) => (n == null ? null : Math.round(n * 10 ** d) / 10 ** d);
 
 /** Game text carries Unity rich-text tags; strip them rather than render them. */
@@ -65,14 +102,14 @@ function thumb(icon, alt, sizeClass = '') {
 
 /** `scale` picks the game's item or monster palette — a Common item is white,
  *  a Common monster is green. */
-const rarityBadge = (r, scale = 'item') => `<span class="badge rarity ${scale === 'monster' ? 'mr' : 'r'}-${cls(r)}">${esc(r)}</span>`;
+const rarityBadge = (r, scale = 'item') => `<span class="badge rarity ${scale === 'monster' ? 'mr' : 'r'}-${cls(r)}">${esc(lb('rarity', r))}</span>`;
 
 const elementBadge = (e, icon) => `<span class="badge element e-${cls(e)}">${
-  icon ? iconImg(icon) : ''}${esc(e)}</span>`;
+  icon ? iconImg(icon) : ''}${esc(lb('element', e))}</span>`;
 
 const biomeBadges = (biomes) => (
   biomes?.length
-    ? `<span class="biome-list">${biomes.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}</span>`
+    ? `<span class="biome-list">${biomes.map((b) => `<span class="badge">${esc(lb('biome', b))}</span>`).join('')}</span>`
     : '—'
 );
 
@@ -91,6 +128,9 @@ const linkItem = (key) => {
   const it = IX.item.get(key);
   return it ? `<a href="#/item/${slug(key)}">${esc(it.name)}</a>` : esc(key ?? '—');
 };
+
+/** `Workshop Lv.2` — the station name is translated, the level number is not. */
+const stationText = (r) => `${lb('station', r.station)}${r.stationLevel ? ` ${t('col.level')}${r.stationLevel}` : ''}`;
 
 /* ------------------------------------------------------------------ filters
    Filter state lives in the hash query so any filtered view is linkable. */
@@ -114,11 +154,11 @@ function chipGroup(label, key, values, current, labels = {}) {
   const options = ['all', ...values];
   return `<div class="filter-group"><span>${esc(label)}</span>${options.map((v) => `
     <button type="button" class="chip" data-param="${esc(key)}" data-value="${esc(v)}"
-            aria-pressed="${String(v === current)}">${esc(labels[v] ?? (v === 'all' ? 'All' : v))}</button>`).join('')}</div>`;
+            aria-pressed="${String(v === current)}">${esc(labels[v] ?? (v === 'all' ? t('filter.all') : v))}</button>`).join('')}</div>`;
 }
 
 function sortSelect(key, options, current) {
-  return `<div class="filter-group"><span>Sort</span><select class="chip" data-param="${esc(key)}">${
+  return `<div class="filter-group"><span>${esc(t('filter.sort'))}</span><select class="chip" data-param="${esc(key)}">${
     options.map(([v, label]) => `<option value="${esc(v)}"${v === current ? ' selected' : ''}>${esc(label)}</option>`).join('')
   }</select></div>`;
 }
@@ -143,7 +183,7 @@ function sortableTable(cols, rows, sortKey, dir, onSort) {
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
-      const c = typeof av === 'number' && typeof bv === 'number' ? av - bv : String(av).localeCompare(String(bv));
+      const c = typeof av === 'number' && typeof bv === 'number' ? av - bv : byName(av, bv);
       return dir === 'desc' ? -c : c;
     });
   }
@@ -176,25 +216,25 @@ function renderHome() {
 
   const frag = el(`<div>
     <div class="hero">
-      <h1>Pixel Chronicles Wiki</h1>
-      <p class="subtitle">Every item, monster, drop chance and recipe, read straight out of the game project.</p>
+      <h1>${esc(t('home.title'))}</h1>
+      <p class="subtitle">${esc(t('home.subtitle'))}</p>
     </div>
 
     <div class="stat-row">
-      <a class="stat-tile" href="#/items"><b>${nf(c.items)}</b><span>Items</span></a>
-      <a class="stat-tile" href="#/monsters"><b>${nf(c.monsters)}</b><span>Monsters</span></a>
-      <a class="stat-tile" href="#/loot"><b>${nf(dropCount)}</b><span>Drop entries</span></a>
-      <a class="stat-tile" href="#/recipes"><b>${nf(c.recipes)}</b><span>Recipes</span></a>
-      <a class="stat-tile" href="#/buildings"><b>${nf(c.buildings)}</b><span>Buildings</span></a>
-      <a class="stat-tile" href="#/talents"><b>${nf(c.talents)}</b><span>Talents</span></a>
-      <a class="stat-tile" href="#/status"><b>${nf(c.statuses)}</b><span>Status effects</span></a>
-      <a class="stat-tile" href="#/modes"><b>${nf(c.levels)}</b><span>Adventure levels</span></a>
+      <a class="stat-tile" href="#/items"><b>${nf(c.items)}</b><span>${esc(t('home.tile.items'))}</span></a>
+      <a class="stat-tile" href="#/monsters"><b>${nf(c.monsters)}</b><span>${esc(t('home.tile.monsters'))}</span></a>
+      <a class="stat-tile" href="#/loot"><b>${nf(dropCount)}</b><span>${esc(t('home.tile.drops'))}</span></a>
+      <a class="stat-tile" href="#/recipes"><b>${nf(c.recipes)}</b><span>${esc(t('home.tile.recipes'))}</span></a>
+      <a class="stat-tile" href="#/buildings"><b>${nf(c.buildings)}</b><span>${esc(t('home.tile.buildings'))}</span></a>
+      <a class="stat-tile" href="#/talents"><b>${nf(c.talents)}</b><span>${esc(t('home.tile.talents'))}</span></a>
+      <a class="stat-tile" href="#/status"><b>${nf(c.statuses)}</b><span>${esc(t('home.tile.statuses'))}</span></a>
+      <a class="stat-tile" href="#/modes"><b>${nf(c.levels)}</b><span>${esc(t('home.tile.levels'))}</span></a>
     </div>
 
-    <h2>Toughest monsters</h2>
+    <h2>${esc(t('home.toughest'))}</h2>
     <div class="grid" id="featured"></div>
 
-    <h2>Legendary &amp; relic gear</h2>
+    <h2>${esc(t('home.bestGear'))}</h2>
     <div class="grid" id="best"></div>
   </div>`);
 
@@ -207,19 +247,21 @@ function renderHome() {
 /** Slot is only informative for gear; elsewhere the category says more. */
 const EQUIPPABLE = new Set(['Weapon', 'Armor']);
 const itemKind = (i) => (EQUIPPABLE.has(i.category) && i.slot ? i.slot : i.tags[0]) ?? null;
+/** The same value, translated — the raw one is still used for filtering. */
+const itemLabel = (i) => (EQUIPPABLE.has(i.category) && i.slot ? lb('slot', i.slot) : lb('category', i.tags[0]));
 
 const itemCard = (i) => el(`<a class="card r-${cls(i.rarity)}" href="#/item/${slug(i.key)}">
   ${thumb(i.icon, i.name)}
   <span class="card-body">
     <span class="card-title">${esc(i.name)}</span>
-    <span class="card-sub">${esc(i.rarity)}${itemKind(i) ? ` · ${esc(itemKind(i))}` : ''}</span>
+    <span class="card-sub">${esc(lb('rarity', i.rarity))}${itemKind(i) ? ` · ${esc(itemLabel(i))}` : ''}</span>
   </span></a>`);
 
 const monsterCard = (m) => el(`<a class="card mr-${cls(m.rarity)}" href="#/monster/${slug(m.key)}">
   ${thumb(m.icon, m.name)}
   <span class="card-body">
     <span class="card-title">${esc(m.name)}</span>
-    <span class="card-sub">${esc(m.element)} · ${nf(m.stats.health)} HP</span>
+    <span class="card-sub">${esc(lb('element', m.element))} · ${nf(m.stats.health)} ${esc(lb('stat', 'Max Health'))}</span>
   </span></a>`);
 
 function renderItems(params) {
@@ -234,8 +276,8 @@ function renderItems(params) {
   if (slot !== 'all') rows = rows.filter((i) => (i.slot ?? 'None') === slot);
 
   const sorters = {
-    name: (a, b) => a.name.localeCompare(b.name),
-    rarity: (a, b) => b.rarityIndex - a.rarityIndex || a.name.localeCompare(b.name),
+    name: (a, b) => byName(a.name, b.name),
+    rarity: (a, b) => b.rarityIndex - a.rarityIndex || byName(a.name, b.name),
     attack: (a, b) => (b.stats?.attack ?? 0) - (a.stats?.attack ?? 0),
     defense: (a, b) => (b.stats?.defense ?? 0) - (a.stats?.defense ?? 0),
     health: (a, b) => (b.stats?.health ?? 0) - (a.stats?.health ?? 0),
@@ -246,17 +288,17 @@ function renderItems(params) {
   const slots = [...new Set(DB.items.map((i) => i.slot).filter(Boolean))].sort();
 
   const frag = el(`<div>
-    <h1>Items</h1>
-    <p class="subtitle">${nf(DB.items.length)} items — stats, rarity, where they drop and how they are crafted.</p>
+    <h1>${esc(t('items.title'))}</h1>
+    <p class="subtitle">${esc(t('items.subtitle', { n: nf(DB.items.length) }))}</p>
     <div class="filters">
-      ${chipGroup('Type', 'tag', tags, tag)}
-      ${chipGroup('Rarity', 'rarity', DB.meta.rarities, rarity)}
-      ${chipGroup('Slot', 'slot', slots, slot)}
-      ${sortSelect('sort', [['name', 'Name'], ['rarity', 'Rarity'], ['attack', 'Attack'], ['defense', 'Defense'], ['health', 'Health']], sort)}
-      <span class="count">${nf(rows.length)} shown</span>
+      ${chipGroup(t('filter.type'), 'tag', tags, tag, labelsFor('category', tags))}
+      ${chipGroup(t('filter.rarity'), 'rarity', DB.meta.rarities, rarity, labelsFor('rarity', DB.meta.rarities))}
+      ${chipGroup(t('filter.slot'), 'slot', slots, slot, labelsFor('slot', slots))}
+      ${sortSelect('sort', [['name', t('sort.name')], ['rarity', t('sort.rarity')], ['attack', t('sort.attack')], ['defense', t('sort.defense')], ['health', t('sort.health')]], sort)}
+      <span class="count">${esc(t('filter.shown', { n: nf(rows.length) }))}</span>
     </div>
     <div class="grid" id="list"></div>
-    ${rows.length ? '' : '<p class="empty-note">No item matches these filters.</p>'}
+    ${rows.length ? '' : `<p class="empty-note">${esc(t('items.empty'))}</p>`}
   </div>`);
 
   frag.getElementById('list').append(...rows.map(itemCard));
@@ -279,27 +321,28 @@ function renderMonsters(params) {
   const envs = [...new Set(DB.monsters.map((m) => m.environment).filter(Boolean))].sort();
 
   const cols = [
-    { label: 'Monster', sort: 'name', value: (m) => m.name, render: (m) => `<span class="with-icon">${iconImg(m.icon)}<a href="#/monster/${slug(m.key)}">${esc(m.name)}</a></span>` },
-    { label: 'Element', sort: 'element', value: (m) => m.element, render: (m) => elementBadge(m.element, m.elementIcon) },
-    { label: 'Rarity', sort: 'rarity', value: (m) => m.rarityIndex, render: (m) => rarityBadge(m.rarity, 'monster') },
-    { label: 'Biome', sort: 'env', value: (m) => m.environment, render: (m) => esc(m.environment ?? '—') },
-    { label: 'HP', num: true, sort: 'health', value: (m) => m.stats.health, render: (m) => nf(m.stats.health) },
-    { label: 'ATK', num: true, sort: 'attack', value: (m) => m.stats.attack, render: (m) => nf(m.stats.attack) },
-    { label: 'DEF', num: true, sort: 'defense', value: (m) => m.stats.defense, render: (m) => nf(m.stats.defense) },
-    { label: 'ATK spd', num: true, sort: 'speed', value: (m) => m.stats.attackSpeed, render: (m) => (m.stats.attackSpeed == null ? '—' : round(m.stats.attackSpeed).toFixed(2)) },
-    { label: 'Drops', num: true, sort: 'drops', value: (m) => (IX.loot.get(m.lootTable)?.entries.length ?? 0), render: (m) => (m.lootTable ? `<a href="#/loot/${slug(m.lootTable)}">${IX.loot.get(m.lootTable).entries.length}</a>` : '—') },
+    { label: t('col.monster'), sort: 'name', value: (m) => m.name, render: (m) => `<span class="with-icon">${iconImg(m.icon)}<a href="#/monster/${slug(m.key)}">${esc(m.name)}</a></span>` },
+    { label: t('filter.element'), sort: 'element', value: (m) => m.element, render: (m) => elementBadge(m.element, m.elementIcon) },
+    { label: t('col.rarity'), sort: 'rarity', value: (m) => m.rarityIndex, render: (m) => rarityBadge(m.rarity, 'monster') },
+    { label: t('col.biome'), sort: 'env', value: (m) => m.environment, render: (m) => esc(lb('biome', m.environment)) },
+    { label: lb('stat', 'Max Health'), num: true, sort: 'health', value: (m) => m.stats.health, render: (m) => nf(m.stats.health) },
+    { label: lb('stat', 'Attack'), num: true, sort: 'attack', value: (m) => m.stats.attack, render: (m) => nf(m.stats.attack) },
+    { label: lb('stat', 'Defense'), num: true, sort: 'defense', value: (m) => m.stats.defense, render: (m) => nf(m.stats.defense) },
+    { label: lb('stat', 'Attack Speed'), num: true, sort: 'speed', value: (m) => m.stats.attackSpeed, render: (m) => (m.stats.attackSpeed == null ? '—' : round(m.stats.attackSpeed).toFixed(2)) },
+    { label: t('col.drops'), num: true, sort: 'drops', value: (m) => (IX.loot.get(m.lootTable)?.entries.length ?? 0), render: (m) => (m.lootTable ? `<a href="#/loot/${slug(m.lootTable)}">${IX.loot.get(m.lootTable).entries.length}</a>` : '—') },
   ];
 
   const frag = el(`<div>
-    <h1>Monsters</h1>
-    <p class="subtitle">${nf(DB.monsters.length)} monsters, ${nf(DB.monsters.filter((m) => m.summonable).length)} of them summonable —
-      several appear in no combat level and can only be summoned. Base stats are the level‑1 values on the
-      entity prefab, before the per‑level multipliers a stage applies.</p>
+    <h1>${esc(t('monsters.title'))}</h1>
+    <p class="subtitle">${esc(t('monsters.subtitle', {
+    n: nf(DB.monsters.length),
+    summonable: nf(DB.monsters.filter((m) => m.summonable).length),
+  }))}</p>
     <div class="filters">
-      ${chipGroup('Element', 'element', DB.meta.elements, element)}
-      ${chipGroup('Rarity', 'rarity', DB.meta.monsterRarities, rarity)}
-      ${chipGroup('Biome', 'env', envs, env)}
-      <span class="count">${nf(rows.length)} shown</span>
+      ${chipGroup(t('filter.element'), 'element', DB.meta.elements, element, labelsFor('element', DB.meta.elements))}
+      ${chipGroup(t('filter.rarity'), 'rarity', DB.meta.monsterRarities, rarity, labelsFor('rarity', DB.meta.monsterRarities))}
+      ${chipGroup(t('filter.biome'), 'env', envs, env, labelsFor('biome', envs))}
+      <span class="count">${esc(t('filter.shown', { n: nf(rows.length) }))}</span>
     </div>
     <div id="table"></div>
   </div>`);
@@ -324,14 +367,14 @@ function renderItemDetail(key) {
   const drops = i.droppedBy.slice().sort((a, b) => (b.chance.normal ?? 0) - (a.chance.normal ?? 0));
 
   const statRows = i.stats ? [
-    ['Attack', i.stats.attack],
-    ['Defense', i.stats.defense],
-    ['Health', i.stats.health],
-    ['Attack speed', i.stats.attackSpeed == null ? null : round(i.stats.attackSpeed).toFixed(2)],
+    [t('sort.attack'), i.stats.attack],
+    [t('sort.defense'), i.stats.defense],
+    [t('sort.health'), i.stats.health],
+    [t('monster.attackSpeed'), i.stats.attackSpeed == null ? null : round(i.stats.attackSpeed).toFixed(2)],
   ].filter(([, v]) => v) : [];
 
   const frag = el(`<div>
-    <p class="crumbs"><a href="#/items">Items</a>${i.tags.length ? ` <span class="arrow">/</span> ${esc(i.tags[0])}` : ''}</p>
+    <p class="crumbs"><a href="#/items">${esc(t('items.title'))}</a>${i.tags.length ? ` <span class="arrow">/</span> ${esc(lb('category', i.tags[0]))}` : ''}</p>
 
     <div class="detail-head">
       ${thumb(i.icon, i.name)}
@@ -339,44 +382,44 @@ function renderItemDetail(key) {
         <h1>${esc(i.name)}</h1>
         <div class="detail-meta">
           ${rarityBadge(i.rarity)}
-          ${i.tags.map((t) => `<span class="badge">${esc(t)}</span>`).join('')}
-          ${i.slot ? `<span class="badge">${esc(i.slot)}</span>` : ''}
-          ${i.maxStack > 1 ? `<span class="badge">Stacks ×${nf(i.maxStack)}</span>` : ''}
-          ${i.upgradable && i.slot ? '<span class="badge">Upgradable</span>' : ''}
+          ${i.tags.map((tag) => `<span class="badge">${esc(lb('category', tag))}</span>`).join('')}
+          ${i.slot ? `<span class="badge">${esc(lb('slot', i.slot))}</span>` : ''}
+          ${i.maxStack > 1 ? `<span class="badge">${esc(t('item.stacks', { n: nf(i.maxStack) }))}</span>` : ''}
+          ${i.upgradable && i.slot ? `<span class="badge">${esc(t('item.upgradable'))}</span>` : ''}
         </div>
       </div>
     </div>
 
     <div class="panels">
       ${statRows.length || i.tool ? `<section class="panel">
-        <h3>Stats</h3>
+        <h3>${esc(t('item.stats'))}</h3>
         <dl class="stats">
           ${statRows.map(([label, v]) => `<div><dt>${esc(label)}</dt><dd>${esc(v)}</dd></div>`).join('')}
-          ${i.maxCharges ? `<div><dt>Skill charges</dt><dd>${nf(i.maxCharges)}</dd></div>` : ''}
+          ${i.maxCharges ? `<div><dt>${esc(t('item.skillCharges'))}</dt><dd>${nf(i.maxCharges)}</dd></div>` : ''}
           ${i.tool ? `
-            <div><dt>Tool type</dt><dd>${esc(i.tool.type)}</dd></div>
-            <div><dt>Tool tier</dt><dd>${nf(i.tool.tier)}</dd></div>
-            <div><dt>Tool damage</dt><dd>${nf(i.tool.damage)}</dd></div>` : ''}
+            <div><dt>${esc(t('item.toolType'))}</dt><dd>${esc(i.tool.type)}</dd></div>
+            <div><dt>${esc(t('item.toolTier'))}</dt><dd>${nf(i.tool.tier)}</dd></div>
+            <div><dt>${esc(t('item.toolDamage'))}</dt><dd>${nf(i.tool.damage)}</dd></div>` : ''}
         </dl>
       </section>` : ''}
 
       ${recipes.length ? `<section class="panel">
-        <h3>Crafting</h3>
+        <h3>${esc(t('item.crafting'))}</h3>
         ${recipes.map(recipePanelBody).join('<hr style="border:0;border-top:1px solid var(--line-soft);margin:12px 0">')}
       </section>` : ''}
 
       ${set ? `<section class="panel">
-        <h3>Set — ${esc(set.name)}</h3>
+        <h3>${esc(t('item.set', { name: set.name }))}</h3>
         <ul class="ingredients">
           ${set.pieces.map((p) => `<li>${pieceRow(p)}</li>`).join('')}
           ${set.associatedWeapon ? `<li>${pieceRow(set.associatedWeapon)}</li>` : ''}
         </ul>
-        <h3 style="margin-top:14px">Set bonus</h3>
-        <dl class="stats">${set.bonuses.map((b) => `<div><dt>${esc(b.stat)}</dt><dd>+${nf(b.value)}${b.unit === '%' ? '%' : ''}</dd></div>`).join('')}</dl>
+        <h3 style="margin-top:14px">${esc(t('item.setBonus'))}</h3>
+        <dl class="stats">${set.bonuses.map((b) => `<div><dt>${esc(lb('stat', b.stat))}</dt><dd>+${nf(b.value)}${b.unit === '%' ? '%' : ''}</dd></div>`).join('')}</dl>
       </section>` : ''}
 
       ${usedIn.length ? `<section class="panel">
-        <h3>Used in ${usedIn.length} recipe${usedIn.length > 1 ? 's' : ''}</h3>
+        <h3>${esc(tn('item.usedIn', usedIn.length))}</h3>
         <ul class="ingredients">${usedIn.map((r) => {
           const amount = r.ingredients.find((x) => x.item === i.key)?.amount ?? 0;
           const out = IX.item.get(r.output);
@@ -387,23 +430,23 @@ function renderItemDetail(key) {
       </section>` : ''}
     </div>
 
-    <h2>Where it drops</h2>
+    <h2>${esc(t('item.whereDrops'))}</h2>
     <div id="drops"></div>
   </div>`);
 
   const dropsHost = frag.getElementById('drops');
   if (!drops.length) {
-    dropsHost.append(el('<p class="empty-note">Not in any loot table — obtained by crafting, the shop, or stage rewards.</p>'));
+    dropsHost.append(el(`<p class="empty-note">${esc(t('item.noDrops'))}</p>`));
   } else {
     dropsHost.append(sortableTable([
-      { label: 'Source', render: (d) => `<span class="with-icon">${iconImg(d.icon)}${
+      { label: t('col.source'), render: (d) => `<span class="with-icon">${iconImg(d.icon)}${
         d.monster ? `<a href="#/monster/${slug(d.monster)}">${esc(d.source)}</a>` : `<a href="#/loot/${slug(d.table)}">${esc(d.source)}</a>`}</span>` },
-      { label: 'Kind', render: (d) => `<span class="badge">${esc(d.kind === 'Monsters' ? 'Monster' : d.kind)}</span>` },
-      { label: 'Biome', render: (d) => biomeBadges(d.biomes) },
-      { label: 'Normal', num: true, render: (d) => chanceCell(d.chance.normal) },
-      { label: 'Hard', num: true, render: (d) => chanceCell(d.chance.hard) },
-      { label: 'Master', num: true, render: (d) => chanceCell(d.chance.master) },
-      { label: 'Amount', num: true, render: (d) => esc(amountsText(d.amounts)) },
+      { label: t('col.kind'), render: (d) => `<span class="badge">${esc(lb('kind', d.kind))}</span>` },
+      { label: t('col.biome'), render: (d) => biomeBadges(d.biomes) },
+      { label: lb('difficulty', 'Normal'), num: true, render: (d) => chanceCell(d.chance.normal) },
+      { label: lb('difficulty', 'Hard'), num: true, render: (d) => chanceCell(d.chance.hard) },
+      { label: lb('difficulty', 'Master'), num: true, render: (d) => chanceCell(d.chance.master) },
+      { label: t('col.amount'), num: true, render: (d) => esc(amountsText(d.amounts)) },
     ], drops, null, 'asc', () => {}));
   }
   return frag;
@@ -413,7 +456,7 @@ const pieceRow = (key) => {
   const p = IX.item.get(key);
   if (!p) return esc(key);
   return `${iconImg(p.icon)}<a href="#/item/${slug(key)}">${esc(p.name)}</a>
-    <span class="amount">${esc(p.slot ?? p.category)}</span>`;
+    <span class="amount">${esc(p.slot ? lb('slot', p.slot) : lb('category', p.category))}</span>`;
 };
 
 function recipePanelBody(r) {
@@ -422,10 +465,10 @@ function recipePanelBody(r) {
     return `<li>${it?.icon ? iconImg(it.icon) : ''}${linkItem(ing.item)}<span class="amount">×${nf(ing.amount)}</span></li>`;
   }).join('')}</ul>
   <dl class="stats" style="margin-top:11px">
-    <div><dt>Station</dt><dd>${esc(r.station)}${r.stationLevel ? ` Lv.${r.stationLevel}` : ''}</dd></div>
-    <div><dt>Output</dt><dd>×${nf(r.outputAmount)}</dd></div>
+    <div><dt>${esc(t('col.station'))}</dt><dd>${esc(stationText(r))}</dd></div>
+    <div><dt>${esc(t('recipe.output'))}</dt><dd>×${nf(r.outputAmount)}</dd></div>
   </dl>
-  <p style="margin:9px 0 0"><a href="#/recipe/${slug(r.id)}">Open recipe →</a></p>`;
+  <p style="margin:9px 0 0"><a href="#/recipe/${slug(r.id)}">${esc(t('recipe.openRecipe'))}</a></p>`;
 }
 
 function renderMonsterDetail(key) {
@@ -441,7 +484,7 @@ function renderMonsterDetail(key) {
     <div class="bar" style="grid-column:1/-1"><i style="width:${max ? Math.round((value / max) * 100) : 0}%"></i></div>`;
 
   const frag = el(`<div>
-    <p class="crumbs"><a href="#/monsters">Monsters</a> <span class="arrow">/</span> ${esc(m.element)}</p>
+    <p class="crumbs"><a href="#/monsters">${esc(t('monsters.title'))}</a> <span class="arrow">/</span> ${esc(lb('element', m.element))}</p>
 
     <div class="detail-head">
       ${thumb(m.icon, m.name)}
@@ -450,29 +493,29 @@ function renderMonsterDetail(key) {
         <div class="detail-meta">
           ${rarityBadge(m.rarity, 'monster')}
           ${elementBadge(m.element, m.elementIcon)}
-          ${m.environment ? `<span class="badge">${esc(m.environment)}</span>` : ''}
-          <span class="badge">${m.obtainable ? 'Obtainable' : 'Not obtainable'}</span>
+          ${m.environment ? `<span class="badge">${esc(lb('biome', m.environment))}</span>` : ''}
+          <span class="badge">${esc(t(m.obtainable ? 'monster.obtainable' : 'monster.notObtainable'))}</span>
         </div>
       </div>
     </div>
 
     <div class="panels">
       <section class="panel">
-        <h3>Base stats (level 1)</h3>
+        <h3>${esc(t('monster.baseStats'))}</h3>
         <dl class="stats">
-          ${bar('Health', m.stats.health, maxHp)}
-          ${bar('Attack', m.stats.attack, maxAtk)}
-          ${bar('Defense', m.stats.defense, maxDef)}
-          <div><dt>Attack speed</dt><dd>${m.stats.attackSpeed == null ? '—' : round(m.stats.attackSpeed).toFixed(2)}</dd></div>
-          <div><dt>Attack interval</dt><dd>${m.stats.attackInterval == null ? '—' : `${round(m.stats.attackInterval).toFixed(2)}s`}</dd></div>
-          ${m.stats.weightedStats ? `<div><dt>Stat weight</dt><dd>${nf(m.stats.weightedStats)}</dd></div>` : ''}
+          ${bar(t('sort.health'), m.stats.health, maxHp)}
+          ${bar(t('sort.attack'), m.stats.attack, maxAtk)}
+          ${bar(t('sort.defense'), m.stats.defense, maxDef)}
+          <div><dt>${esc(t('monster.attackSpeed'))}</dt><dd>${m.stats.attackSpeed == null ? '—' : round(m.stats.attackSpeed).toFixed(2)}</dd></div>
+          <div><dt>${esc(t('monster.attackInterval'))}</dt><dd>${m.stats.attackInterval == null ? '—' : `${round(m.stats.attackInterval).toFixed(2)}s`}</dd></div>
+          ${m.stats.weightedStats ? `<div><dt>${esc(t('monster.statWeight'))}</dt><dd>${nf(m.stats.weightedStats)}</dd></div>` : ''}
         </dl>
       </section>
 
       ${summonPanel(m)}
 
       ${m.skills.length ? `<section class="panel">
-        <h3>Skills</h3>
+        <h3>${esc(t('monster.skills'))}</h3>
         ${m.skills.map((s) => `<div class="skill">
           <div class="skill-head">
             <span class="skill-icon">${iconImg(s.icon)}</span>
@@ -483,13 +526,13 @@ function renderMonsterDetail(key) {
       </section>` : ''}
     </div>
 
-    <h2>Loot</h2>
+    <h2>${esc(t('monster.loot'))}</h2>
     <div id="loot"></div>
   </div>`);
 
   const host = frag.getElementById('loot');
   if (!table?.entries.length) {
-    host.append(el('<p class="empty-note">No personal loot table. Bosses and elites drop through their stage’s reward pool instead.</p>'));
+    host.append(el(`<p class="empty-note">${esc(t('monster.noLootTable'))}</p>`));
   } else {
     host.append(lootEntriesTable(table.entries));
   }
@@ -498,15 +541,15 @@ function renderMonsterDetail(key) {
 
 function lootEntriesTable(entries) {
   return sortableTable([
-    { label: 'Item', render: (e) => {
+    { label: t('col.item'), render: (e) => {
       const it = IX.item.get(e.item);
       return `<span class="with-icon">${it?.icon ? iconImg(it.icon) : ''}${linkItem(e.item)}</span>`;
     } },
-    { label: 'Rarity', render: (e) => { const it = IX.item.get(e.item); return it ? rarityBadge(it.rarity) : '—'; } },
-    { label: 'Normal', num: true, render: (e) => chanceCell(e.chance.normal) },
-    { label: 'Hard', num: true, render: (e) => chanceCell(e.chance.hard) },
-    { label: 'Master', num: true, render: (e) => chanceCell(e.chance.master) },
-    { label: 'Amount', num: true, render: (e) => esc(amountsText(e.amounts)) },
+    { label: t('col.rarity'), render: (e) => { const it = IX.item.get(e.item); return it ? rarityBadge(it.rarity) : '—'; } },
+    { label: lb('difficulty', 'Normal'), num: true, render: (e) => chanceCell(e.chance.normal) },
+    { label: lb('difficulty', 'Hard'), num: true, render: (e) => chanceCell(e.chance.hard) },
+    { label: lb('difficulty', 'Master'), num: true, render: (e) => chanceCell(e.chance.master) },
+    { label: t('col.amount'), num: true, render: (e) => esc(amountsText(e.amounts)) },
   ], entries.slice().sort((a, b) => (b.chance.normal ?? 0) - (a.chance.normal ?? 0)), null, 'asc', () => {});
 }
 
@@ -532,33 +575,33 @@ function renderLootList(params) {
   const matchedItems = needle ? countMatchedDrops(rows, needle) : 0;
 
   const frag = el(`<div>
-    <h1>Loot tables</h1>
-    <p class="subtitle">${nf(DB.loot.length)} tables. Chances are per kill or per harvest, listed for each difficulty.</p>
+    <h1>${esc(t('loot.title'))}</h1>
+    <p class="subtitle">${esc(t('loot.subtitle', { n: nf(DB.loot.length) }))}</p>
     <div class="filters">
       <div class="filter-group" style="flex:1 1 220px">
-        <span>Drops item</span>
+        <span>${esc(t('loot.dropsItem'))}</span>
         <input id="loot-item" type="search" class="chip" style="flex:1;min-width:150px"
-               placeholder="e.g. Iron Bar" value="${esc(itemQuery)}" aria-label="Filter tables by dropped item">
+               placeholder="${esc(t('loot.placeholder'))}" value="${esc(itemQuery)}" aria-label="${esc(t('loot.filterLabel'))}">
       </div>
-      ${chipGroup('Kind', 'kind', kinds, kind)}
-      ${chipGroup('Biome', 'biome', biomes, biome)}
-      <span class="count">${nf(rows.length)} table${rows.length === 1 ? '' : 's'}${needle ? ` · ${nf(matchedItems)} matching drop${matchedItems === 1 ? '' : 's'}` : ''}</span>
+      ${chipGroup(t('filter.kind'), 'kind', kinds, kind, labelsFor('kind', kinds))}
+      ${chipGroup(t('filter.biome'), 'biome', biomes, biome, labelsFor('biome', biomes))}
+      <span class="count">${esc(tn('loot.tables', rows.length))}${needle ? ` · ${esc(tn('loot.matching', matchedItems))}` : ''}</span>
     </div>
     <div id="table"></div>
-    ${rows.length ? '' : '<p class="empty-note">No loot table matches these filters.</p>'}
+    ${rows.length ? '' : `<p class="empty-note">${esc(t('loot.empty'))}</p>`}
   </div>`);
 
   frag.getElementById('table').append(sortableTable([
-    { label: 'Source', sort: 'name', value: (t) => t.sourceName, render: (t) => `<span class="with-icon">${
-      t.icon ? iconImg(t.icon) : ''}<a href="#/loot/${slug(t.id)}">${esc(t.sourceName)}</a></span>` },
-    { label: 'Kind', sort: 'kind', value: (t) => t.kind, render: (t) => `<span class="badge">${esc(t.kind === 'Monsters' ? 'Monster' : t.kind)}</span>` },
-    { label: 'Biome', sort: 'biome', value: (t) => t.biomes.join(', '), render: (t) => biomeBadges(t.biomes) },
-    { label: 'Entries', num: true, sort: 'entries', value: (t) => t.entries.length, render: (t) => nf(t.entries.length) },
+    { label: t('col.source'), sort: 'name', value: (r) => r.sourceName, render: (r) => `<span class="with-icon">${
+      r.icon ? iconImg(r.icon) : ''}<a href="#/loot/${slug(r.id)}">${esc(r.sourceName)}</a></span>` },
+    { label: t('col.kind'), sort: 'kind', value: (r) => r.kind, render: (r) => `<span class="badge">${esc(lb('kind', r.kind))}</span>` },
+    { label: t('col.biome'), sort: 'biome', value: (r) => r.biomes.join(', '), render: (r) => biomeBadges(r.biomes) },
+    { label: t('col.entries'), num: true, sort: 'entries', value: (r) => r.entries.length, render: (r) => nf(r.entries.length) },
     // With an item filter active, show only the drops that matched.
-    { label: 'Items', render: (t) => {
+    { label: t('col.items'), render: (r) => {
       const shown = needle
-        ? t.entries.filter((e) => matchesItem(e, needle))
-        : t.entries;
+        ? r.entries.filter((e) => matchesItem(e, needle))
+        : r.entries;
       const head = shown.slice(0, 4).map((e) => `${linkItem(e.item)}${
         e.chance.normal == null ? '' : ` <span class="chance">${e.chance.normal}%</span>`}`).join(', ');
       return head + (shown.length > 4 ? ` +${shown.length - 4}` : '');
@@ -608,40 +651,40 @@ function wireLootItemFilter(root) {
 }
 
 function renderLootDetail(id) {
-  const t = IX.loot.get(id);
-  if (!t) return notFound('loot table', id);
-  const monster = t.monster ? IX.monster.get(t.monster) : null;
+  const table = IX.loot.get(id);
+  if (!table) return notFound('lootTable', id);
+  const monster = table.monster ? IX.monster.get(table.monster) : null;
 
   const frag = el(`<div>
-    <p class="crumbs"><a href="#/loot">Loot tables</a> <span class="arrow">/</span> ${esc(t.kind)}</p>
+    <p class="crumbs"><a href="#/loot">${esc(t('loot.title'))}</a> <span class="arrow">/</span> ${esc(lb('kind', table.kind))}</p>
     <div class="detail-head">
-      ${thumb(t.icon, t.sourceName)}
+      ${thumb(table.icon, table.sourceName)}
       <div>
-        <h1>${esc(t.sourceName)}</h1>
+        <h1>${esc(table.sourceName)}</h1>
         <div class="detail-meta">
-          <span class="badge">${esc(t.kind === 'Monsters' ? 'Monster' : t.kind)}</span>
-          ${t.biomes.map((b) => `<span class="badge">${esc(b)}</span>`).join('')}
-          <span class="badge">${nf(t.entries.length)} entr${t.entries.length === 1 ? 'y' : 'ies'}</span>
+          <span class="badge">${esc(lb('kind', table.kind))}</span>
+          ${table.biomes.map((b) => `<span class="badge">${esc(lb('biome', b))}</span>`).join('')}
+          <span class="badge">${esc(tn('loot.entries', table.entries.length))}</span>
         </div>
-        ${monster ? `<p style="margin:9px 0 0"><a href="#/monster/${slug(monster.key)}">Open monster →</a></p>` : ''}
+        ${monster ? `<p style="margin:9px 0 0"><a href="#/monster/${slug(monster.key)}">${esc(t('loot.openMonster'))}</a></p>` : ''}
       </div>
     </div>
     <div id="table" style="margin-top:20px"></div>
-    ${t.spawns.length ? '<h2>Where it spawns</h2><div id="spawns"></div>' : ''}
+    ${table.spawns.length ? `<h2>${esc(t('loot.whereSpawns'))}</h2><div id="spawns"></div>` : ''}
   </div>`);
 
   const host = frag.getElementById('table');
-  if (!t.entries.length) host.append(el('<p class="empty-note">This table is empty.</p>'));
-  else host.append(lootEntriesTable(t.entries));
+  if (!table.entries.length) host.append(el(`<p class="empty-note">${esc(t('loot.tableEmpty'))}</p>`));
+  else host.append(lootEntriesTable(table.entries));
 
   const spawnHost = frag.getElementById('spawns');
   if (spawnHost) {
     spawnHost.append(sortableTable([
-      { label: 'Biome', render: (s) => `<span class="badge">${esc(s.biome)}</span>` },
-      { label: 'Difficulty', render: (s) => esc(s.difficulty) },
-      { label: 'Prop', render: (s) => esc(prettifyName(s.resource)) },
-      { label: 'Spawn chance', num: true, render: (s) => chanceCell(s.spawnChance) },
-    ], t.spawns, null, 'asc', () => {}));
+      { label: t('col.biome'), render: (row) => `<span class="badge">${esc(lb('biome', row.biome))}</span>` },
+      { label: t('col.difficulty'), render: (row) => esc(lb('difficulty', row.difficulty)) },
+      { label: t('col.prop'), render: (row) => esc(prettifyName(row.resource)) },
+      { label: t('col.spawnChance'), num: true, render: (row) => chanceCell(row.spawnChance) },
+    ], table.spawns, null, 'asc', () => {}));
   }
   return frag;
 }
@@ -653,18 +696,17 @@ function renderLootDetail(id) {
  */
 function summonPanel(m) {
   if (!m.summon.length) {
-    return `<section class="panel"><h3>How to obtain</h3>
-      <p class="empty-note">In no summon pool — not currently obtainable.</p>
+    return `<section class="panel"><h3>${esc(t('monster.howToObtain'))}</h3>
+      <p class="empty-note">${esc(t('monster.noSummon'))}</p>
     </section>`;
   }
 
-  const pools = [...new Set(m.summon.map((s) => s.poolRarity))];
+  const pools = [...new Set(m.summon.map((s) => s.poolRarity))].map((r) => lb('rarity', r));
 
   return `<section class="panel">
-    <h3>How to obtain</h3>
+    <h3>${esc(t('monster.howToObtain'))}</h3>
     <p class="empty-note" style="margin-bottom:11px">
-      Summoned from the <strong>${pools.map(esc).join(' / ')}</strong> pool.
-      Check the in-game banner for current rates.
+      ${esc(t('monster.summonedFrom', { pools: pools.join(' / ') }))}
     </p>
     <ul class="pill-list">${m.summon.map((s) => `<li><span class="badge">${esc(s.bannerName)}</span></li>`).join('')}</ul>
   </section>`;
@@ -690,25 +732,25 @@ function renderRecipes(params) {
   const stations = [...new Set(DB.recipes.map((r) => r.station))].sort();
 
   const frag = el(`<div>
-    <h1>Recipes</h1>
-    <p class="subtitle">${nf(DB.recipes.length)} recipes.</p>
+    <h1>${esc(t('recipes.title'))}</h1>
+    <p class="subtitle">${esc(t('recipes.subtitle', { n: nf(DB.recipes.length) }))}</p>
     <div class="filters">
-      ${chipGroup('Category', 'category', categories, category)}
-      ${chipGroup('Station', 'station', stations, station)}
-      <span class="count">${nf(rows.length)} shown</span>
+      ${chipGroup(t('filter.category'), 'category', categories, category, labelsFor('category', categories))}
+      ${chipGroup(t('filter.station'), 'station', stations, station, labelsFor('station', stations))}
+      <span class="count">${esc(t('filter.shown', { n: nf(rows.length) }))}</span>
     </div>
     <div id="table"></div>
   </div>`);
 
   frag.getElementById('table').append(sortableTable([
-    { label: 'Result', sort: 'name', value: (r) => r.outputName, render: (r) => {
+    { label: t('col.result'), sort: 'name', value: (r) => r.outputName, render: (r) => {
       const it = IX.item.get(r.output);
       return `<span class="with-icon">${it?.icon ? iconImg(it.icon) : ''}<a href="#/recipe/${slug(r.id)}">${esc(r.outputName)}</a>${r.outputAmount > 1 ? ` ×${r.outputAmount}` : ''}</span>`;
     } },
-    { label: 'Category', sort: 'category', value: (r) => r.category, render: (r) => `<span class="badge">${esc(r.category)}</span>` },
-    { label: 'Station', sort: 'station', value: (r) => r.station, render: (r) => esc(r.station) },
-    { label: 'Lv.', num: true, sort: 'level', value: (r) => r.stationLevel, render: (r) => nf(r.stationLevel) },
-    { label: 'Ingredients', render: (r) => r.ingredients.map((ing) => `${linkItem(ing.item)} ×${nf(ing.amount)}`).join(', ') },
+    { label: t('col.category'), sort: 'category', value: (r) => r.category, render: (r) => `<span class="badge">${esc(lb('category', r.category))}</span>` },
+    { label: t('col.station'), sort: 'station', value: (r) => r.station, render: (r) => esc(lb('station', r.station)) },
+    { label: t('col.level'), num: true, sort: 'level', value: (r) => r.stationLevel, render: (r) => nf(r.stationLevel) },
+    { label: t('col.ingredients'), render: (r) => r.ingredients.map((ing) => `${linkItem(ing.item)} ×${nf(ing.amount)}`).join(', ') },
   ], rows, params.get('sort') ?? 'name', params.get('dir') ?? 'asc', (key) => {
     const { parts, params: p } = parseHash();
     p.set('sort', key);
@@ -725,23 +767,23 @@ function renderRecipeDetail(id) {
   const out = IX.item.get(r.output);
 
   return el(`<div>
-    <p class="crumbs"><a href="#/recipes">Recipes</a> <span class="arrow">/</span> ${esc(r.category)}</p>
+    <p class="crumbs"><a href="#/recipes">${esc(t('recipes.title'))}</a> <span class="arrow">/</span> ${esc(lb('category', r.category))}</p>
     <div class="detail-head">
       ${thumb(out?.icon, r.outputName)}
       <div>
         <h1>${esc(r.outputName)}${r.outputAmount > 1 ? ` ×${r.outputAmount}` : ''}</h1>
         <div class="detail-meta">
           ${out ? rarityBadge(out.rarity) : ''}
-          <span class="badge">${esc(r.category)}</span>
-          <span class="badge">${esc(r.station)}${r.stationLevel ? ` Lv.${r.stationLevel}` : ''}</span>
+          <span class="badge">${esc(lb('category', r.category))}</span>
+          <span class="badge">${esc(stationText(r))}</span>
         </div>
-        ${out ? `<p style="margin:9px 0 0"><a href="#/item/${slug(out.key)}">Open item →</a></p>` : ''}
+        ${out ? `<p style="margin:9px 0 0"><a href="#/item/${slug(out.key)}">${esc(t('recipe.openItem'))}</a></p>` : ''}
       </div>
     </div>
 
     <div class="panels" style="margin-top:20px">
       <section class="panel">
-        <h3>Ingredients</h3>
+        <h3>${esc(t('col.ingredients'))}</h3>
         <ul class="ingredients">${r.ingredients.map((ing) => {
           const it = IX.item.get(ing.item);
           return `<li>${it?.icon ? iconImg(it.icon) : ''}${linkItem(ing.item)}<span class="amount">×${nf(ing.amount)}</span></li>`;
@@ -762,10 +804,10 @@ function subRecipesPanel(r) {
   if (!subs.length) return '';
 
   return `<section class="panel">
-    <h3>Crafted from crafted parts</h3>
+    <h3>${esc(t('recipe.subParts'))}</h3>
     ${subs.map((s) => `<div class="skill">
       <span class="skill-name"><a href="#/recipe/${slug(s.id)}">${esc(s.outputName)}</a></span>
-      <span class="skill-kind">${esc(s.station)}${s.stationLevel ? ` Lv.${s.stationLevel}` : ''}</span>
+      <span class="skill-kind">${esc(stationText(s))}</span>
       <p>${s.ingredients.map((ing) => `${esc(ing.itemName)} ×${nf(ing.amount)}`).join(' · ')}</p>
     </div>`).join('')}
   </section>`;
@@ -773,8 +815,8 @@ function subRecipesPanel(r) {
 
 function renderSets() {
   const frag = el(`<div>
-    <h1>Item sets</h1>
-    <p class="subtitle">${nf(DB.sets.length)} sets. Wearing every piece grants the listed bonus.</p>
+    <h1>${esc(t('sets.title'))}</h1>
+    <p class="subtitle">${esc(t('sets.subtitle', { n: nf(DB.sets.length) }))}</p>
     <div class="panels" id="list"></div>
   </div>`);
 
@@ -784,8 +826,8 @@ function renderSets() {
       ${s.pieces.map((p) => `<li>${pieceRow(p)}</li>`).join('')}
       ${s.associatedWeapon ? `<li>${pieceRow(s.associatedWeapon)}</li>` : ''}
     </ul>
-    <h3 style="margin-top:14px">Set bonus</h3>
-    <dl class="stats">${s.bonuses.map((b) => `<div><dt>${esc(b.stat)}</dt><dd>+${nf(b.value)}${b.unit === '%' ? '%' : ''}</dd></div>`).join('')}</dl>
+    <h3 style="margin-top:14px">${esc(t('item.setBonus'))}</h3>
+    <dl class="stats">${s.bonuses.map((b) => `<div><dt>${esc(lb('stat', b.stat))}</dt><dd>+${nf(b.value)}${b.unit === '%' ? '%' : ''}</dd></div>`).join('')}</dl>
   </section>`)));
   return frag;
 }
@@ -793,7 +835,7 @@ function renderSets() {
 /* ---------------------------------------------------------------- buildings */
 
 const duration = (seconds) => {
-  if (!seconds) return 'instant';
+  if (!seconds) return t('building.instant');
   const h = Math.floor(seconds / 3600);
   const m = Math.floor((seconds % 3600) / 60);
   const s = seconds % 60;
@@ -802,9 +844,9 @@ const duration = (seconds) => {
 
 const costText = (c) => {
   const parts = [];
-  if (c.amount) parts.push(`${nf(c.amount)} ${c.currency}`);
+  if (c.amount) parts.push(`${nf(c.amount)} ${lb('currency', c.currency)}`);
   for (const m of c.materials) parts.push(`${esc(m.itemName)} ×${nf(m.amount)}`);
-  return parts.length ? parts.join(' · ') : 'free';
+  return parts.length ? parts.join(' · ') : t('building.free');
 };
 
 function renderBuildings(params) {
@@ -815,12 +857,11 @@ function renderBuildings(params) {
   const categories = [...new Set(DB.buildings.map((b) => b.category))].sort();
 
   const frag = el(`<div>
-    <h1>Buildings</h1>
-    <p class="subtitle">${nf(DB.buildings.length)} buildings you can buy. The ones that start as ruins on your island
-      and are repaired rather than purchased are left out.</p>
+    <h1>${esc(t('buildings.title'))}</h1>
+    <p class="subtitle">${esc(t('buildings.subtitle', { n: nf(DB.buildings.length) }))}</p>
     <div class="filters">
-      ${chipGroup('Category', 'category', categories, category)}
-      <span class="count">${nf(rows.length)} shown</span>
+      ${chipGroup(t('filter.category'), 'category', categories, category, labelsFor('buildingCategory', categories))}
+      <span class="count">${esc(t('filter.shown', { n: nf(rows.length) }))}</span>
     </div>
     <div class="panels" id="list"></div>
   </div>`);
@@ -830,17 +871,17 @@ function renderBuildings(params) {
       <span class="thumb" style="width:44px;height:44px;flex:none">${iconImg(b.icon, b.name)}</span>
       <span>
         <span class="skill-name" style="font-size:16px">${esc(b.name)}</span>
-        <span class="skill-kind">${esc(b.category)}</span>
+        <span class="skill-kind">${esc(lb('buildingCategory', b.category))}</span>
       </span>
     </div>
     ${b.description ? `<p style="margin:0 0 12px;font-size:13px;color:var(--text-dim)">${esc(plain(b.description))}</p>` : ''}
     <dl class="stats">
-      <div><dt>Buy</dt><dd>${costText(b.purchase)}</dd></div>
-      ${b.purchase.buildSeconds ? `<div><dt>Build time</dt><dd>${esc(duration(b.purchase.buildSeconds))}</dd></div>` : ''}
-      <div><dt>Max level</dt><dd>${nf(b.maxLevel)}</dd></div>
+      <div><dt>${esc(t('building.buy'))}</dt><dd>${costText(b.purchase)}</dd></div>
+      ${b.purchase.buildSeconds ? `<div><dt>${esc(t('building.buildTime'))}</dt><dd>${esc(duration(b.purchase.buildSeconds))}</dd></div>` : ''}
+      <div><dt>${esc(t('building.maxLevel'))}</dt><dd>${nf(b.maxLevel)}</dd></div>
     </dl>
-    ${b.upgrades.length ? `<h3 style="margin:14px 0 8px">Upgrades</h3>
-      <div class="table-wrap"><table><thead><tr><th>Lv.</th><th>Cost</th><th>Time</th></tr></thead><tbody>
+    ${b.upgrades.length ? `<h3 style="margin:14px 0 8px">${esc(t('building.upgrades'))}</h3>
+      <div class="table-wrap"><table><thead><tr><th>${esc(t('col.level'))}</th><th>${esc(t('col.cost'))}</th><th>${esc(t('col.time'))}</th></tr></thead><tbody>
         ${b.upgrades.map((u) => `<tr><td>${u.level}</td><td>${costText(u)}</td><td>${esc(duration(u.buildSeconds))}</td></tr>`).join('')}
       </tbody></table></div>` : ''}
   </section>`)));
@@ -854,10 +895,10 @@ function renderBuildings(params) {
 const statusCard = (s) => el(`<section class="status s-${cls(s.group)}">
   <span class="thumb status-icon">${iconImg(s.icon, s.name)}</span>
   <div class="status-body">
-    <span class="status-name">${esc(s.name)}${s.tickSeconds ? `<span class="skill-kind">every ${esc(String(s.tickSeconds))}s</span>` : ''}</span>
+    <span class="status-name">${esc(s.name)}${s.tickSeconds ? `<span class="skill-kind">${esc(t('status.every', { n: s.tickSeconds }))}</span>` : ''}</span>
     ${s.effects.length
     ? `<ul class="status-effects">${s.effects.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>`
-    : '<p class="status-none">No description.</p>'}
+    : `<p class="status-none">${esc(t('status.noDescription'))}</p>`}
   </div>
 </section>`);
 
@@ -867,19 +908,21 @@ function renderStatuses(params) {
   const shown = group === 'all' ? groups : groups.filter((g) => g === group);
 
   const frag = el(`<div>
-    <h1>Status effects</h1>
-    <p class="subtitle">${nf(DB.statuses.length)} effects — ${nf(DB.statuses.filter((s) => s.group === 'Buff').length)}
-      buffs and ${nf(DB.statuses.filter((s) => s.group === 'Debuff').length)} debuffs. Values are the ones the game's own
-      tooltips show.</p>
+    <h1>${esc(t('status.title'))}</h1>
+    <p class="subtitle">${esc(t('status.subtitle', {
+    n: nf(DB.statuses.length),
+    buffs: nf(DB.statuses.filter((s) => s.group === 'Buff').length),
+    debuffs: nf(DB.statuses.filter((s) => s.group === 'Debuff').length),
+  }))}</p>
     <div class="filters">
-      ${chipGroup('Group', 'group', groups, group)}
+      ${chipGroup(t('filter.group'), 'group', groups, group, labelsFor('group', groups))}
     </div>
     <div id="list"></div>
   </div>`);
 
   frag.getElementById('list').append(...shown.map((g) => {
     const section = el(`<section>
-      <h2 class="status-group ${cls(g)}">${esc(g === 'Buff' ? 'Buffs' : g === 'Debuff' ? 'Debuffs' : g)}</h2>
+      <h2 class="status-group ${cls(g)}">${esc(g === 'Buff' ? t('status.buffs') : g === 'Debuff' ? t('status.debuffs') : lb('group', g))}</h2>
       <div class="status-grid"></div>
     </section>`);
     section.querySelector('.status-grid').append(...DB.statuses.filter((s) => s.group === g).map(statusCard));
@@ -894,22 +937,21 @@ function renderStatuses(params) {
 
 function renderTalents() {
   const frag = el(`<div>
-    <h1>Talents</h1>
-    <p class="subtitle">${nf(DB.talents.length)} talents. Every rank replaces the one before it — the values are not
-      cumulative.</p>
+    <h1>${esc(t('talents.title'))}</h1>
+    <p class="subtitle">${esc(t('talents.subtitle', { n: nf(DB.talents.length) }))}</p>
     <div class="panels" id="list"></div>
   </div>`);
 
-  frag.getElementById('list').append(...DB.talents.map((t) => el(`<section class="panel">
+  frag.getElementById('list').append(...DB.talents.map((talent) => el(`<section class="panel">
     <div class="skill-head" style="margin-bottom:10px">
-      <span class="thumb" style="width:44px;height:44px;flex:none">${iconImg(t.icon, t.name)}</span>
+      <span class="thumb" style="width:44px;height:44px;flex:none">${iconImg(talent.icon, talent.name)}</span>
       <span>
-        <span class="skill-name" style="font-size:16px">${esc(t.name)}</span>
-        <span class="skill-kind">${nf(t.maxLevel)} ranks</span>
+        <span class="skill-name" style="font-size:16px">${esc(talent.name)}</span>
+        <span class="skill-kind">${esc(t('talents.ranks', { n: nf(talent.maxLevel) }))}</span>
       </span>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>Rank</th><th>Effect</th></tr></thead><tbody>
-      ${t.levels.map((l) => `<tr><td class="rank">${esc(l.roman)}</td><td>${esc(l.description ?? '—')}</td></tr>`).join('')}
+    <div class="table-wrap"><table><thead><tr><th>${esc(t('col.rank'))}</th><th>${esc(t('col.effect'))}</th></tr></thead><tbody>
+      ${talent.levels.map((l) => `<tr><td class="rank">${esc(l.roman)}</td><td>${esc(l.description ?? '—')}</td></tr>`).join('')}
     </tbody></table></div>
   </section>`)));
 
@@ -922,9 +964,8 @@ const modeLevelCount = (m) => m.groups.reduce((n, g) => n + g.sets.reduce((k, s)
 
 function renderModes() {
   const frag = el(`<div>
-    <h1>Game modes</h1>
-    <p class="subtitle">Only released content is listed. Locations whose waves are still empty in the
-      build are left out and will appear here on their own once they are filled in.</p>
+    <h1>${esc(t('modes.title'))}</h1>
+    <p class="subtitle">${esc(t('modes.subtitle'))}</p>
     <div class="grid" id="list"></div>
   </div>`);
 
@@ -932,25 +973,25 @@ function renderModes() {
     ${thumb(m.icon, m.name)}
     <span class="card-body">
       <span class="card-title">${esc(m.name)}</span>
-      <span class="card-sub">${nf(modeLevelCount(m))} levels${m.players > 1 ? ` · ${m.players} players` : ''}</span>
+      <span class="card-sub">${esc(t('mode.levels', { n: nf(modeLevelCount(m)) }))}${m.players > 1 ? ` · ${esc(t('mode.players', { n: m.players }))}` : ''}</span>
     </span></a>`)));
   return frag;
 }
 
 function renderMode(key) {
   const mode = IX.mode.get(key);
-  if (!mode) return notFound('game mode', key);
+  if (!mode) return notFound('gameMode', key);
 
   const single = mode.groups.length === 1;
   const frag = el(`<div>
-    <p class="crumbs"><a href="#/modes">Game modes</a></p>
+    <p class="crumbs"><a href="#/modes">${esc(t('modes.title'))}</a></p>
     <div class="detail-head">
       ${thumb(mode.icon, mode.name)}
       <div>
         <h1>${esc(mode.name)}</h1>
         <div class="detail-meta">
-          <span class="badge">${nf(modeLevelCount(mode))} levels</span>
-          ${mode.players > 1 ? `<span class="badge">${mode.players} players</span>` : ''}
+          <span class="badge">${esc(t('mode.levels', { n: nf(modeLevelCount(mode)) }))}</span>
+          ${mode.players > 1 ? `<span class="badge">${esc(t('mode.players', { n: mode.players }))}</span>` : ''}
         </div>
       </div>
     </div>
@@ -960,7 +1001,8 @@ function renderMode(key) {
 
   frag.getElementById('list').append(...mode.groups.map((g, index) => {
     const levels = g.sets.reduce((n, s) => n + s.levels.length, 0);
-    const sub = [g.biome, `${nf(levels)} ${g.setKind === 'Tier' ? 'tiers' : 'levels'}`].filter(Boolean).join(' · ');
+    const sub = [g.biome ? lb('biome', g.biome) : null,
+      t(g.setKind === 'Tier' ? 'mode.tiers' : 'mode.levels', { n: nf(levels) })].filter(Boolean).join(' · ');
     return el(`<a class="card" href="#/chapter/${slug(g.key)}">
       <span class="thumb" style="width:40px;height:40px;flex:none;font:600 15px var(--mono);color:var(--text-dim)">${single ? '' : index + 1}</span>
       <span class="card-body">
@@ -977,23 +1019,22 @@ function dropPanels(l) {
 
   if (l.accessoryDrop) {
     parts.push(`<section class="panel" style="margin-bottom:12px">
-      <h3>Accessory roll</h3>
-      <p class="empty-note" style="margin-bottom:11px">Clearing this tier rolls one accessory: a tier,
-        then a rarity, drawn independently.</p>
+      <h3>${esc(t('mode.accessoryRoll'))}</h3>
+      <p class="empty-note" style="margin-bottom:11px">${esc(t('mode.accessoryNote'))}</p>
       <div class="panels">
-        <div><h3>Tier</h3><dl class="stats">${l.accessoryDrop.tiers.map((t) => `
-          <div><dt>Tier ${t.tier}</dt><dd>${t.chance}%</dd></div>`).join('')}</dl></div>
-        <div><h3>Rarity</h3><dl class="stats">${l.accessoryDrop.rarities.map((r) => `
-          <div><dt><span class="rarity-text r-${cls(r.rarity)}">${esc(r.rarity)}</span></dt><dd>${r.chance}%</dd></div>`).join('')}</dl></div>
+        <div><h3>${esc(t('col.tier'))}</h3><dl class="stats">${l.accessoryDrop.tiers.map((row) => `
+          <div><dt>${esc(t('mode.tierN', { n: row.tier }))}</dt><dd>${row.chance}%</dd></div>`).join('')}</dl></div>
+        <div><h3>${esc(t('col.rarity'))}</h3><dl class="stats">${l.accessoryDrop.rarities.map((r) => `
+          <div><dt><span class="rarity-text r-${cls(r.rarity)}">${esc(lb('rarity', r.rarity))}</span></dt><dd>${r.chance}%</dd></div>`).join('')}</dl></div>
       </div>
     </section>`);
   }
 
   for (const pool of l.itemDrops) {
     parts.push(`<section class="panel" style="margin-bottom:12px">
-      <h3>Loot — ${esc(prettifyName(pool.pool))}</h3>
+      <h3>${esc(t('mode.lootPool', { name: prettifyName(pool.pool) }))}</h3>
       <div class="table-wrap"><table>
-        <thead><tr><th>Item</th><th class="num">Chance</th><th class="num">Amount</th></tr></thead>
+        <thead><tr><th>${esc(t('col.item'))}</th><th class="num">${esc(t('col.chance'))}</th><th class="num">${esc(t('col.amount'))}</th></tr></thead>
         <tbody>${pool.entries.map((e) => `<tr>
           <td><span class="with-icon">${iconImg(e.icon, e.itemName ?? '')}${
             e.item ? linkItem(e.item) : esc(e.itemName ?? '—')}</span></td>
@@ -1007,6 +1048,15 @@ function dropPanels(l) {
   return parts.join('');
 }
 
+/**
+ * What one entry of a location is called. Raids number their entries by
+ * difficulty, dungeons by tier, chapters by level — the payload carries the index
+ * and the kind, and the phrasing is chosen here so it can be translated.
+ */
+const levelLabel = (chapter, l) => (l.difficulty
+  ? lb('difficulty', l.difficulty)
+  : t(chapter.setKind === 'Tier' ? 'mode.tierN' : 'mode.level', { n: l.index }));
+
 function renderChapter(key, params) {
   const found = IX.chapter.get(key);
   if (!found) return notFound('location', key);
@@ -1018,41 +1068,41 @@ function renderChapter(key, params) {
   const showPicker = available.length > 1;
 
   const frag = el(`<div>
-    <p class="crumbs"><a href="#/modes">Game modes</a> <span class="arrow">/</span>
+    <p class="crumbs"><a href="#/modes">${esc(t('modes.title'))}</a> <span class="arrow">/</span>
       <a href="#/mode/${slug(mode.key)}">${esc(mode.name)}</a></p>
     <h1>${esc(chapter.name)}</h1>
-    <p class="subtitle">${chapter.biome ? `${esc(chapter.biome)} biome. ` : ''}Waves are listed in the order they spawn.${
-      mode.players > 1 ? ` Played by ${mode.players}.` : ''}</p>
+    <p class="subtitle">${chapter.biome ? `${esc(t('mode.biomePrefix', { biome: lb('biome', chapter.biome) }))} ` : ''}${esc(t('mode.wavesOrder'))}${
+      mode.players > 1 ? ` ${esc(t('mode.playedBy', { n: mode.players }))}` : ''}</p>
     <div class="filters">
-      ${showPicker ? `<div class="filter-group"><span>${esc(chapter.setKind)}</span>${available.map((d) => `
+      ${showPicker ? `<div class="filter-group"><span>${esc(lb('setKind', chapter.setKind))}</span>${available.map((d) => `
         <button type="button" class="chip" data-param="difficulty" data-value="${esc(d)}"
-                aria-pressed="${String(d === chosen)}">${esc(d)}</button>`).join('')}</div>` : ''}
-      <span class="count">${nf(levels.length)} ${chapter.setKind === 'Tier' ? 'tiers' : 'levels'}</span>
+                aria-pressed="${String(d === chosen)}">${esc(lb('difficulty', d))}</button>`).join('')}</div>` : ''}
+      <span class="count">${esc(t(chapter.setKind === 'Tier' ? 'mode.tiers' : 'mode.levels', { n: nf(levels.length) }))}</span>
     </div>
     <div id="levels"></div>
   </div>`);
 
   frag.getElementById('levels').append(...levels.map((l) => el(`<section class="panel" style="margin-bottom:14px">
     <div class="skill-head" style="justify-content:space-between;margin-bottom:10px">
-      <span><span class="skill-name" style="font-size:16px">${esc(l.label ?? `Level ${l.index}`)}</span>
-        <span class="skill-kind">${nf(l.waves.length)} waves</span></span>
+      <span><span class="skill-name" style="font-size:16px">${esc(levelLabel(chapter, l))}</span>
+        <span class="skill-kind">${esc(t('mode.waves', { n: nf(l.waves.length) }))}</span></span>
       <span class="biome-list">
-        <span class="badge">${nf(l.cost)} ${esc(l.costCurrency)}</span>
+        <span class="badge">${nf(l.cost)} ${esc(lb('currency', l.costCurrency))}</span>
         <span class="badge">${nf(l.xp)} XP</span>
-        <span class="badge">${nf(l.coins[0])}–${nf(l.coins[1])} coins</span>
-        ${l.teamSlots ? `<span class="badge">${nf(l.teamSlots)} slot${l.teamSlots > 1 ? 's' : ''}</span>` : ''}
+        <span class="badge">${esc(t('mode.coins', { a: nf(l.coins[0]), b: nf(l.coins[1]) }))}</span>
+        ${l.teamSlots ? `<span class="badge">${esc(tn('mode.slots', l.teamSlots))}</span>` : ''}
       </span>
     </div>
     ${dropPanels(l)}
     <div class="table-wrap"><table>
-      <thead><tr><th>Wave</th><th>Enemies</th></tr></thead>
+      <thead><tr><th>${esc(t('col.wave'))}</th><th>${esc(t('col.enemies'))}</th></tr></thead>
       <tbody>${l.waves.map((w) => `<tr>
         <td class="num">${w.index}</td>
         <td>${w.enemies.map((e) => `<span class="with-icon" style="display:inline-flex;margin-right:14px">
           ${iconImg(e.icon, e.name)}
           ${e.monster ? `<a href="#/monster/${slug(e.monster)}">${esc(e.name)}</a>` : esc(e.name)}
           ${e.count > 1 ? ` ×${e.count}` : ''}
-          <span class="skill-kind${e.type === 'Boss' ? ' special' : ''}">Lv.${e.level}${e.type === 'Basic' ? '' : ` ${e.type}`}</span>
+          <span class="skill-kind${e.type === 'Boss' ? ' special' : ''}">${esc(t('col.level'))}${e.level}${e.type === 'Basic' ? '' : ` ${esc(lb('enemyType', e.type))}`}</span>
         </span>`).join('')}</td>
       </tr>`).join('')}</tbody>
     </table></div>
@@ -1063,9 +1113,9 @@ function renderChapter(key, params) {
 }
 
 const notFound = (kind, key) => el(`<div>
-  <h1>Not found</h1>
-  <p class="subtitle">No ${esc(kind)} named “${esc(key)}”.</p>
-  <p><a href="#/">Back to the wiki home →</a></p>
+  <h1>${esc(t('error.notFound'))}</h1>
+  <p class="subtitle">${esc(t('error.noSuch', { kind: t(`kind.${kind}`), key }))}</p>
+  <p><a href="#/">${esc(t('error.backHome'))}</a></p>
 </div>`);
 
 /* ------------------------------------------------------------------ search */
@@ -1089,20 +1139,20 @@ function searchAll(query) {
     if (s >= 0) hits.push({ kind, name, href, icon, s });
   };
 
-  for (const i of DB.items) push('Item', i.name, `#/item/${slug(i.key)}`, i.icon, i.key);
-  for (const m of DB.monsters) push('Monster', m.name, `#/monster/${slug(m.key)}`, m.icon, m.key);
-  for (const r of DB.recipes) push('Recipe', r.outputName, `#/recipe/${slug(r.id)}`, IX.item.get(r.output)?.icon, r.id);
-  for (const s of DB.sets) push('Set', s.name, `#/sets`, null, s.key);
-  for (const t of DB.loot) push('Loot', t.sourceName, `#/loot/${slug(t.id)}`, t.icon, t.id);
-  for (const b of DB.buildings) push('Building', b.name, `#/buildings`, b.icon, b.key);
-  for (const t of DB.talents) push('Talent', t.name, `#/talents`, t.icon, t.key);
-  for (const s of DB.statuses) push(s.group === 'Debuff' ? 'Debuff' : 'Buff', s.name, `#/status`, s.icon, s.key);
+  for (const i of DB.items) push(t('hit.Item'), i.name, `#/item/${slug(i.key)}`, i.icon, i.key);
+  for (const m of DB.monsters) push(t('hit.Monster'), m.name, `#/monster/${slug(m.key)}`, m.icon, m.key);
+  for (const r of DB.recipes) push(t('hit.Recipe'), r.outputName, `#/recipe/${slug(r.id)}`, IX.item.get(r.output)?.icon, r.id);
+  for (const set of DB.sets) push(t('hit.Set'), set.name, `#/sets`, null, set.key);
+  for (const table of DB.loot) push(t('hit.Loot'), table.sourceName, `#/loot/${slug(table.id)}`, table.icon, table.id);
+  for (const b of DB.buildings) push(t('hit.Building'), b.name, `#/buildings`, b.icon, b.key);
+  for (const talent of DB.talents) push(t('hit.Talent'), talent.name, `#/talents`, talent.icon, talent.key);
+  for (const st of DB.statuses) push(t(st.group === 'Debuff' ? 'hit.Debuff' : 'hit.Buff'), st.name, `#/status`, st.icon, st.key);
   for (const m of DB.gamemodes) {
-    push('Mode', m.name, `#/mode/${slug(m.key)}`, m.icon, m.key);
-    for (const g of m.groups) push(m.key === 'adventure' ? 'Chapter' : m.name, g.name, `#/chapter/${slug(g.key)}`, null, g.key);
+    push(t('hit.Mode'), m.name, `#/mode/${slug(m.key)}`, m.icon, m.key);
+    for (const g of m.groups) push(m.key === 'adventure' ? t('hit.Chapter') : m.name, g.name, `#/chapter/${slug(g.key)}`, null, g.key);
   }
 
-  hits.sort((a, b) => a.s - b.s || a.name.localeCompare(b.name));
+  hits.sort((a, b) => a.s - b.s || byName(a.name, b.name));
   return hits.slice(0, 12);
 }
 
@@ -1202,10 +1252,10 @@ function route() {
     // clue was in the console — a tab that simply refused to open. The usual
     // cause is a browser holding an old app.js against freshly published data.
     console.error(err);
-    content = el(`<div class="warn"><b>This page failed to load.</b>
-      <p style="margin:6px 0 0">Your browser may be holding an older version of the wiki.
-      Reload with <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> on a Mac).</p>
-      <p style="margin:6px 0 0">If it keeps happening, this is a bug worth reporting:
+    const shortcut = '<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd> (<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)';
+    content = el(`<div class="warn"><b>${esc(t('error.pageFailed'))}</b>
+      <p style="margin:6px 0 0">${t('error.staleCache', { shortcut })}</p>
+      <p style="margin:6px 0 0">${esc(t('error.reportBug'))}
       <code>${esc(String(err && err.message ? err.message : err))}</code></p></div>`);
   }
 
@@ -1218,41 +1268,85 @@ function route() {
     else a.removeAttribute('aria-current');
   });
 
-  document.title = section ? `${titleFor(section, key)} — Pixel Chronicles Wiki` : 'Pixel Chronicles Wiki';
+  document.title = section ? `${titleFor(section, key)} — ${t('home.title')}` : t('home.title');
   closeSuggestions();
   if (!rest.length) window.scrollTo(0, 0);
 }
 
+const TITLE_OF = {
+  items: 'items.title', monsters: 'monsters.title', loot: 'loot.title', recipes: 'recipes.title',
+  sets: 'sets.title', buildings: 'buildings.title', talents: 'talents.title', status: 'status.title',
+  modes: 'modes.title',
+};
+
 function titleFor(section, key) {
-  if (section === 'item') return IX.item.get(key)?.name ?? 'Item';
-  if (section === 'monster') return IX.monster.get(key)?.name ?? 'Monster';
-  if (section === 'recipe') return IX.recipe.get(key)?.outputName ?? 'Recipe';
-  if (section === 'loot' && key) return IX.loot.get(key)?.sourceName ?? 'Loot table';
-  if (section === 'mode') return IX.mode.get(key)?.name ?? 'Game mode';
-  if (section === 'chapter') return IX.chapter.get(key)?.chapter.name ?? 'Chapter';
-  return section.charAt(0).toUpperCase() + section.slice(1);
+  if (section === 'item') return IX.item.get(key)?.name ?? t('hit.Item');
+  if (section === 'monster') return IX.monster.get(key)?.name ?? t('hit.Monster');
+  if (section === 'recipe') return IX.recipe.get(key)?.outputName ?? t('hit.Recipe');
+  if (section === 'loot' && key) return IX.loot.get(key)?.sourceName ?? t('loot.title');
+  if (section === 'mode') return IX.mode.get(key)?.name ?? t('hit.Mode');
+  if (section === 'chapter') return IX.chapter.get(key)?.chapter.name ?? t('hit.Chapter');
+  return TITLE_OF[section] ? t(TITLE_OF[section]) : section.charAt(0).toUpperCase() + section.slice(1);
 }
 
 window.addEventListener('hashchange', route);
 
 /* --------------------------------------------------------------------- boot */
 
+const PAYLOADS = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'talents', 'statuses', 'meta'];
+
+/**
+ * Load one language's payloads. A language is a whole data set rather than an
+ * overlay, so switching language is the same code path as the first load — which
+ * is the point: there is no second rendering path that can drift.
+ */
+async function fetchLanguage(code) {
+  // The preview bundle inlines every language, so it can run from file:// where
+  // fetch is blocked.
+  if (window.__WIKI_DATA__) {
+    const bundled = window.__WIKI_DATA__[code];
+    if (!bundled) throw new Error(`the bundled preview has no "${code}" language — rebuild it with tools/bundle.mjs`);
+    return PAYLOADS.map((n) => {
+      if (bundled[n] === undefined) throw new Error(`the bundled preview has no "${code}/${n}" payload — rebuild it with tools/bundle.mjs`);
+      return bundled[n];
+    });
+  }
+
+  return Promise.all(PAYLOADS.map(async (n) => {
+    const res = await fetch(`data/${code}/${n}.json`, { cache: 'no-cache' });
+    if (!res.ok) throw new Error(`data/${code}/${n}.json → HTTP ${res.status}`);
+    return res.json();
+  }));
+}
+
+/**
+ * Stored choice, else the browser's language, else English. Which languages exist
+ * is only known once a payload is loaded, so a wrong guess simply fails and
+ * `boot` retries in English.
+ */
+function preferredLanguage() {
+  const stored = localStorage.getItem(LANG_KEY);
+  if (stored) return stored;
+  for (const tag of navigator.languages ?? [navigator.language ?? '']) {
+    const base = String(tag).toLowerCase().split('-')[0];
+    if (base) return base;
+  }
+  return 'en';
+}
+
 async function boot() {
-  const names = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'talents', 'statuses', 'meta'];
+  const wanted = preferredLanguage();
   try {
-    // The preview bundle inlines the payloads, so it can run from file:// where
-    // fetch is blocked.
-    const payloads = window.__WIKI_DATA__
-      ? names.map((n) => {
-        const payload = window.__WIKI_DATA__[n];
-        if (payload === undefined) throw new Error(`the bundled preview has no "${n}" payload — rebuild it with wiki/tools/bundle.mjs`);
-        return payload;
-      })
-      : await Promise.all(names.map(async (n) => {
-        const res = await fetch(`data/${n}.json`, { cache: 'no-cache' });
-        if (!res.ok) throw new Error(`data/${n}.json → HTTP ${res.status}`);
-        return res.json();
-      }));
+    let payloads;
+    try {
+      payloads = await fetchLanguage(wanted);
+      LANG = wanted;
+    } catch (err) {
+      if (wanted === 'en') throw err;
+      // The browser asked for a language the game does not have. Not an error.
+      payloads = await fetchLanguage('en');
+      LANG = 'en';
+    }
 
     // Indexing lives inside the try as well: a payload that loads but is not what
     // the page expects used to throw here and leave "Loading game data…" on
@@ -1261,17 +1355,59 @@ async function boot() {
   } catch (err) {
     view.replaceChildren(el(`<div class="warn"><b>Could not load the wiki data.</b>
       <p style="margin:6px 0 0">${esc(err.message)}</p>
-      <p style="margin:6px 0 0">Run <code>node wiki/tools/extract.mjs</code>, and serve this folder over HTTP
-      (<code>npx serve wiki/site</code>) — opening index.html from the filesystem blocks fetch.</p></div>`));
+      <p style="margin:6px 0 0">Run <code>node tools/extract.mjs</code>, and serve the repository root over HTTP
+      (<code>npx serve .</code>) — opening index.html from the filesystem blocks fetch.</p></div>`));
     return;
   }
 
   route();
 }
 
+/** Reload every payload in `code` and re-render the page the reader is on. */
+async function switchLanguage(code) {
+  if (code === LANG) return;
+  const previous = LANG;
+  try {
+    const payloads = await fetchLanguage(code);
+    LANG = code;
+    localStorage.setItem(LANG_KEY, code);
+    install(payloads);
+    route();
+  } catch (err) {
+    console.error(err);
+    // Leave the reader on a working page rather than a broken one.
+    langSelect.value = previous;
+  }
+}
+
+const langSelect = document.getElementById('lang');
+langSelect.addEventListener('change', () => switchLanguage(langSelect.value));
+
+/**
+ * Push the loaded language's strings into the parts of the page that live in
+ * index.html rather than in a render function — the tabs, the search box, the
+ * footer. Marked up with `data-i18n*` so this stays one loop.
+ */
+function applyChrome() {
+  document.documentElement.lang = LANG;
+  for (const node of document.querySelectorAll('[data-i18n]')) node.textContent = t(node.dataset.i18n);
+  for (const node of document.querySelectorAll('[data-i18n-placeholder]')) node.placeholder = t(node.dataset.i18nPlaceholder);
+  for (const node of document.querySelectorAll('[data-i18n-aria]')) node.setAttribute('aria-label', t(node.dataset.i18nAria));
+  for (const node of document.querySelectorAll('[data-i18n-title]')) node.title = t(node.dataset.i18nTitle);
+
+  const languages = DB.meta?.languages ?? [{ code: LANG, name: LANG }];
+  langSelect.innerHTML = languages.map((l) => (
+    `<option value="${esc(l.code)}"${l.code === LANG ? ' selected' : ''}>${esc(l.name)}</option>`
+  )).join('');
+}
+
 /** Populate DB and the lookup indexes from the loaded payloads. */
 function install(payloads) {
   [DB.items, DB.monsters, DB.loot, DB.recipes, DB.sets, DB.buildings, DB.gamemodes, DB.talents, DB.statuses, DB.meta] = payloads;
+
+  // Keys are the project's, so they are identical in every language — but clear
+  // anyway, so a language that drops an entry cannot leave the old one reachable.
+  for (const index of Object.values(IX)) index.clear();
 
   for (const i of DB.items) IX.item.set(i.key, i);
   for (const m of DB.monsters) IX.monster.set(m.key, m);
@@ -1285,10 +1421,11 @@ function install(payloads) {
   }
 
   injectRarityColors(DB.meta.rarityColors);
+  applyChrome();
 
   const when = new Date(DB.meta.generatedAt);
   document.getElementById('footer-meta').textContent =
-    `Data generated ${when.toISOString().slice(0, 10)}`;
+    t('footer.generated', { date: when.toLocaleDateString(LANG, { dateStyle: 'medium' }) });
 }
 
 /**
@@ -1300,9 +1437,14 @@ function injectRarityColors(colors) {
   const rules = [];
   for (const [rarity, hex] of Object.entries(colors.item ?? {})) rules.push(`.r-${cls(rarity)}{--rarity:${hex}}`);
   for (const [rarity, hex] of Object.entries(colors.monster ?? {})) rules.push(`.mr-${cls(rarity)}{--rarity:${hex}}`);
-  const style = document.createElement('style');
+  // Reused rather than appended: install() runs again on every language change.
+  let style = document.getElementById('rarity-colors');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'rarity-colors';
+    document.head.append(style);
+  }
   style.textContent = rules.join('');
-  document.head.append(style);
 }
 
 boot();

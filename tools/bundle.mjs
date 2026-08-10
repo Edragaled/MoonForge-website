@@ -45,11 +45,26 @@ function main() {
   // Read whatever extract.mjs produced rather than a hardcoded list: a list here
   // silently drifts when a new payload is added, and the page then hangs on
   // "Loading game data…" because one of the names app.js asks for is missing.
+  //
+  // Every language is inlined, not just English: the language button has to work
+  // in the preview, which is most of the reason for sending one.
   const payloads = {};
-  for (const file of readdirSync(dataDir)) {
-    if (file.endsWith('.json')) payloads[basename(file, '.json')] = JSON.parse(readFileSync(join(dataDir, file), 'utf8'));
+  for (const entry of readdirSync(dataDir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    const language = {};
+    for (const file of readdirSync(join(dataDir, entry.name))) {
+      if (file.endsWith('.json')) language[basename(file, '.json')] = JSON.parse(readFileSync(join(dataDir, entry.name, file), 'utf8'));
+    }
+    payloads[entry.name] = language;
   }
-  console.log(`  payloads: ${Object.keys(payloads).sort().join(', ')}`);
+
+  const codes = Object.keys(payloads).sort();
+  if (!codes.length) {
+    console.error('No language directories in wiki/data — run `node tools/extract.mjs` first.');
+    process.exit(1);
+  }
+  console.log(`  ${codes.length} languages: ${codes.join(', ')}`);
+  console.log(`  payloads: ${Object.keys(payloads.en ?? payloads[codes[0]]).sort().join(', ')}`);
 
   const icons = {};
   for (const file of walk(join(SITE, 'icons'))) {

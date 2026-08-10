@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pixel Chronicles Wiki</title>
 <meta name="description" content="Items, monsters, loot tables and crafting recipes for Pixel Chronicles.">
-<link rel="stylesheet" href="styles.css?v=20ffcd9ac1">
+<link rel="stylesheet" href="styles.css?v=7c53b07cdb">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%2314161c'/><rect x='3' y='3' width='4' height='4' fill='%23f0b32d'/><rect x='9' y='9' width='4' height='4' fill='%236fcf6f'/></svg>">
 </head>
 <body>
@@ -18,24 +18,30 @@
 
   <div class="search">
     <input id="search" type="search" placeholder="Search items, monsters, recipes…" autocomplete="off"
-           spellcheck="false" aria-label="Search" aria-controls="suggestions" role="combobox" aria-expanded="false">
+           spellcheck="false" aria-label="Search" aria-controls="suggestions" role="combobox" aria-expanded="false"
+           data-i18n-placeholder="search.placeholder" data-i18n-aria="search.label">
     <ul id="suggestions" class="suggestions" role="listbox" hidden></ul>
   </div>
 
   <nav class="tabs" id="tabs">
-    <a href="#/items">Items</a>
-    <a href="#/monsters">Monsters</a>
-    <a href="#/loot">Loot</a>
-    <a href="#/recipes">Recipes</a>
-    <a href="#/sets">Sets</a>
-    <a href="#/buildings">Buildings</a>
-    <a href="#/talents">Talents</a>
-    <a href="#/status">Status</a>
-    <a href="#/modes">Modes</a>
+    <a href="#/items" data-i18n="nav.items">Items</a>
+    <a href="#/monsters" data-i18n="nav.monsters">Monsters</a>
+    <a href="#/loot" data-i18n="nav.loot">Loot</a>
+    <a href="#/recipes" data-i18n="nav.recipes">Recipes</a>
+    <a href="#/sets" data-i18n="nav.sets">Sets</a>
+    <a href="#/buildings" data-i18n="nav.buildings">Buildings</a>
+    <a href="#/talents" data-i18n="nav.talents">Talents</a>
+    <a href="#/status" data-i18n="nav.status">Status</a>
+    <a href="#/modes" data-i18n="nav.modes">Modes</a>
     <a class="offsite" href="../">moonforge-games.com ↗</a>
   </nav>
 
-  <button id="theme" class="icon-btn" type="button" aria-label="Toggle colour scheme" title="Toggle colour scheme"></button>
+  <div class="lang">
+    <select id="lang" aria-label="Language" data-i18n-aria="lang.label"></select>
+  </div>
+
+  <button id="theme" class="icon-btn" type="button" aria-label="Toggle colour scheme" title="Toggle colour scheme"
+          data-i18n-aria="theme.toggle" data-i18n-title="theme.toggle"></button>
 </header>
 
 <main id="view" aria-live="polite">
@@ -45,11 +51,11 @@
 <footer class="footer">
   <span id="footer-meta"></span>
   <span class="sep">·</span>
-  <span>Generated straight from the game build</span>
+  <span data-i18n="footer.tagline">Generated straight from the game build</span>
   <span class="sep">·</span>
   <a href="../">moonforge-games.com</a>
 </footer>
 
-<script src="app.js?v=20ffcd9ac1"></script>
+<script src="app.js?v=7c53b07cdb"></script>
 </body>
 </html>

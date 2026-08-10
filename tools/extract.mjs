@@ -22,6 +22,8 @@ import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID 
 import { resolveSprite } from './lib/sprite.mjs';
 import { readTalentValues, fillTalentText, romanNumeral } from './lib/talents.mjs';
 import { readStatusEffectScripts, describeStatusEffect } from './lib/status-effects.mjs';
+import { loadLanguages } from './lib/i18n.mjs';
+import { loadUiStrings } from './lib/ui-strings.mjs';
 import * as E from './lib/enums.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -65,6 +67,7 @@ const WORLD_RESOURCES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'W
 const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements');
 const TALENT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Talents');
 const STATUS_EFFECT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'StatusEffects');
+const UI_STRINGS = join(HERE, 'ui');
 
 // The biome folders under LootTables/Monsters and the generator name prefixes
 // disagree on one name; the folder spelling is what the wiki shows.
@@ -169,24 +172,12 @@ function buildQuantumIndex() {
 
 // ------------------------------------------------------------- localization
 
-/**
- * English string for every I2Loc term. Only index 0 (English) is read, and the
- * surrounding mSource config — which holds the Google Sheets service URL and
- * password — is deliberately never touched.
- */
-function loadEnglish() {
-  const doc = readUnityYaml(join(ASSETS, 'Resources', 'I2Languages.asset'))[0];
-  const src = doc.body.mSource;
-  const enIndex = (src.mLanguages ?? []).findIndex((l) => l.Code === 'en');
-  if (enIndex === -1) throw new Error('No English language in I2Languages');
-
-  const map = new Map();
-  for (const term of src.mTerms ?? []) {
-    const value = term.Languages?.[enIndex];
-    if (typeof value === 'string' && value !== '') map.set(term.Term, value);
-  }
-  return map;
-}
+// Term maps come from lib/i18n.mjs, one per language. Throughout the extraction
+// the current language's map is named `L` or `en` — the second is historical, from
+// when the wiki was English-only, and means "the language being extracted".
+//
+// The surrounding mSource config, which holds the Google Sheets service URL and
+// password, is deliberately never touched.
 
 /** Split PascalCase into words, for entries with no localization entry. */
 const prettify = (s) => String(s ?? '')
@@ -255,15 +246,16 @@ function stampAssets() {
 
   const hash = createHash('sha1');
   for (const file of ['app.js', 'styles.css']) hash.update(readFileSync(join(OUT, file)));
-  for (const file of readdirSync(DATA).sort()) {
-    if (file === 'meta.json') {
+  // Recursive: the payloads live one directory down, one per language.
+  for (const file of walk(DATA, (p) => p.endsWith('.json')).sort()) {
+    if (basename(file) === 'meta.json') {
       // `generatedAt` moves every run; hashing it would expire every visitor's
       // cache on a regeneration that changed nothing.
-      const { generatedAt, ...rest } = JSON.parse(readFileSync(join(DATA, file), 'utf8'));
+      const { generatedAt, ...rest } = JSON.parse(readFileSync(file, 'utf8'));
       hash.update(JSON.stringify(rest));
       continue;
     }
-    hash.update(readFileSync(join(DATA, file)));
+    hash.update(readFileSync(file));
   }
   const version = hash.digest('hex').slice(0, 10);
 
@@ -1229,7 +1221,6 @@ function extractGameModes(guidIndex, en, monstersByKey, generators, itemsByGuid)
     script: SCRIPT.dungeon,
     nameKeyPrefix: 'Dungeon',
     setLabel: 'Tier',
-    levelLabel: (i) => `Tier ${i}`,
   });
   if (dungeons.length) {
     modes.push({
@@ -1247,7 +1238,6 @@ function extractGameModes(guidIndex, en, monstersByKey, generators, itemsByGuid)
     script: SCRIPT.raid,
     nameKeyPrefix: 'Raid',
     setLabel: 'Difficulty',
-    levelLabel: (i, level) => level.difficulty ?? `Level ${i}`,
     difficultyNames: E.Difficulties,
   });
   if (raids.length) {
@@ -1283,7 +1273,7 @@ function extractAdventure(guidIndex, en, monstersByKey, generators, itemsByGuid)
       .map(([label, refs]) => ({
         label,
         levels: (refs ?? [])
-          .map((ref, index) => readLevel(guidIndex.get(ref?.guid), index + 1, `Level ${index + 1}`, monstersByKey, itemsByGuid))
+          .map((ref, index) => readLevel(guidIndex.get(ref?.guid), index + 1, monstersByKey, itemsByGuid))
           .filter(Boolean),
       }))
       .filter((s) => s.levels.length);
@@ -1314,10 +1304,9 @@ function extractTieredMode(guidIndex, en, monstersByKey, itemsByGuid, opts) {
     const levels = (b.Levels ?? [])
       .map((ref, index) => {
         const difficulty = opts.difficultyNames ? opts.difficultyNames[index] : null;
-        const level = readLevel(guidIndex.get(ref?.guid), index + 1, null, monstersByKey, itemsByGuid);
+        const level = readLevel(guidIndex.get(ref?.guid), index + 1, monstersByKey, itemsByGuid);
         if (!level) return null;
         level.difficulty = difficulty;
-        level.label = opts.levelLabel(index + 1, level);
         return level;
       })
       .filter(Boolean)
@@ -1349,7 +1338,7 @@ function destinationIcon(fileBase, name) {
   return null;
 }
 
-function readLevel(file, index, label, monstersByKey, itemsByGuid) {
+function readLevel(file, index, monstersByKey, itemsByGuid) {
   if (!file || !existsSync(file)) return null;
   const docs = readUnityYaml(file);
 
@@ -1364,7 +1353,6 @@ function readLevel(file, index, label, monstersByKey, itemsByGuid) {
 
   return {
     index,
-    label,
     name: basename(file, '.asset'),
     kind: E.named(E.LevelTypes, data.LevelType, 'Adventure'),
     cost: num(data.Cost),
@@ -1638,6 +1626,96 @@ function pruneExcludedItems({ items, sets, tables, recipes, unreferenced, gamemo
 
 // --------------------------------------------------------------------- main
 
+/**
+ * Everything that depends on the chosen language. Called once per language; the
+ * expensive asset indexing and file scanning happen once, outside.
+ */
+function extractLocalized(L, structural) {
+  const { guidIndex, quantumIndex, elementIcons, appearances, generators, resourcePrefabs, spawns } = structural;
+
+  const { items, byGuid: itemsByGuid, fileByKey } = extractItems(guidIndex, L);
+  const sets = extractSets(L, itemsByGuid);
+  const { tables, byQuantumGuid } = extractLootTables(guidIndex, L, itemsByGuid, spawns, resourcePrefabs);
+  const { monsters, hidden, byGuid: monstersByGuid, displayByKey } = extractMonsters({
+    guidIndex, quantumIndex, en: L, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons,
+  });
+  const banners = extractSummons(L, monstersByGuid, itemsByGuid);
+  const recipes = extractRecipes(itemsByGuid);
+  const statuses = extractStatusEffects(guidIndex, L);
+  const talents = extractTalents(guidIndex, L);
+  const buildings = extractBuildings(guidIndex, L, itemsByGuid);
+  const gamemodes = extractGameModes(guidIndex, L, {
+    linkable: new Set(monsters.map((m) => m.key)),
+    display: displayByKey,
+  }, generators, itemsByGuid);
+
+  return { items, sets, tables, monsters, hidden, banners, recipes, statuses, talents, buildings, gamemodes, itemsByGuid, fileByKey };
+}
+
+/**
+ * Vocabulary the wiki shows as labels — rarities, elements, biomes, stat names.
+ *
+ * The payloads keep the project's own identifiers (`Common`, `Volcano`) so that a
+ * filter in the URL means the same thing in every language. Only the *label* is
+ * translated, and it comes from the game's spreadsheet wherever the game has a
+ * term for it; `tools/ui/` covers the handful it does not (`Relic`, item
+ * categories, the wiki's own loot "kinds").
+ */
+function buildLabels(L, ui, vocab) {
+  const SHEET = {
+    rarity: (v) => `Rarities/${v}`,
+    element: (v) => `Bestiary/${v}`,
+    // The asset folder is `Volcan`, the enum says `Volcano`.
+    biome: (v) => `Biome/${v === 'Volcano' ? 'Volcan' : v}`,
+    slot: (v) => `EquipmentSlot/${v === 'Main Hand' ? 'Main' : v}`,
+    difficulty: (v) => `Difficulty/${v}`,
+    stat: (v) => `Stats/${v.replace(/\s+/g, '')}`,
+    station: (v) => `Building/StationTypes/${v.replace(/\s+/g, '')}`,
+    currency: (v) => ({
+      Coin: 'MonsterInventory/Coin',
+      Diamond: 'Arena/Diamond',
+      Energy: 'FloatingText/Energy',
+      'Raid Key': 'Events/DailyWheel/RaidKey',
+      Crest: 'Shop/Crest',
+    }[v] ?? null),
+    buildingCategory: (v) => (v === 'Resource' ? 'Shop/Resource' : null),
+  };
+
+  const labels = {};
+  for (const [kind, values] of Object.entries(vocab)) {
+    labels[kind] = {};
+    for (const value of values) {
+      const term = SHEET[kind]?.(value);
+      labels[kind][value] = (term && L.get(term)) ?? ui[`vocab.${kind}.${value}`] ?? value;
+    }
+  }
+  return labels;
+}
+
+/** The distinct vocabulary the payloads actually use, so nothing is guessed. */
+function collectVocabulary(p) {
+  const uniq = (values) => [...new Set(values.filter((v) => v != null && v !== ''))].sort();
+  return {
+    rarity: uniq([...E.ItemRarities, ...E.MonsterRarities]),
+    element: uniq(E.Elements),
+    biome: uniq([...p.tables.flatMap((t) => t.biomes), ...p.monsters.map((m) => m.environment),
+      ...p.gamemodes.flatMap((m) => m.groups.map((g) => g.biome))]),
+    slot: uniq(p.items.map((i) => i.slot)),
+    difficulty: uniq([...p.tables.flatMap((t) => t.spawns.map((s) => s.difficulty)),
+      ...p.gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.map((s) => s.label)))]),
+    stat: uniq(p.sets.flatMap((s) => s.bonuses.map((b) => b.stat))),
+    station: uniq(p.recipes.map((r) => r.station)),
+    currency: uniq([...p.buildings.map((b) => b.purchase.currency),
+      ...p.gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels.map((l) => l.costCurrency))))]),
+    category: uniq([...p.items.map((i) => i.category), ...p.items.flatMap((i) => i.tags), ...p.recipes.map((r) => r.category)]),
+    kind: uniq(p.tables.map((t) => t.kind)),
+    group: uniq(p.statuses.map((s) => s.group)),
+    buildingCategory: uniq(p.buildings.map((b) => b.category)),
+    setKind: uniq(p.gamemodes.flatMap((m) => m.groups.map((g) => g.setKind))),
+    enemyType: uniq(p.gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels.flatMap((l) => l.waves.flatMap((w) => w.enemies.map((e) => e.type)))))))
+  };
+}
+
 function main() {
   const started = Date.now();
   console.log('Indexing asset guids…');
@@ -1646,133 +1724,117 @@ function main() {
   const prototypeIndex = buildPrototypeIndex(walk(ASSETS, (p) => p.endsWith('.qprototype')), guidIndex);
   console.log(`  ${guidIndex.size} unity guids, ${quantumIndex.size} quantum assets, ${prototypeIndex.size} entity prototypes`);
 
-  console.log('Reading English localization…');
-  const en = loadEnglish();
-  console.log(`  ${en.size} terms`);
-
-  const elementIcons = extractElementIcons();
-
-  console.log('Extracting items…');
-  let { items, byGuid: itemsByGuid, fileByKey } = extractItems(guidIndex, en);
-  let sets = extractSets(en, itemsByGuid);
-  console.log(`  ${items.length} items, ${sets.length} sets`);
-
-  console.log('Checking which items the project actually uses…');
-  const unreferenced = findUnreferencedItems(items, fileByKey);
-  console.log(`  ${unreferenced.size} referenced nowhere`);
+  console.log('Reading localization…');
+  const { languages, maps } = loadLanguages(join(ASSETS, 'Resources', 'I2Languages.asset'), warn);
+  const uiStrings = loadUiStrings(UI_STRINGS, languages.map((l) => l.code), warn);
+  console.log(`  ${languages.length} languages (${languages.map((l) => l.code).join(', ')}), ${maps.get('en').size} terms each`);
 
   console.log('Scanning combat levels…');
+  const elementIcons = extractElementIcons();
   const { appearances, generators } = scanCombatLevels();
   const resourcePrefabs = scanResourcePrefabs(guidIndex);
   const spawns = scanResourceSpawns(generators, prototypeIndex, resourcePrefabs);
   console.log(`  ${appearances.size} monsters placed, ${generators.length} resource generators, ${resourcePrefabs.size} harvestable tables (${spawns.size} biome-mapped)`);
 
-  console.log('Extracting loot tables…');
-  let { tables, byQuantumGuid } = extractLootTables(guidIndex, en, itemsByGuid, spawns, resourcePrefabs);
-  console.log(`  ${tables.length} loot tables`);
+  const structural = { guidIndex, quantumIndex, elementIcons, appearances, generators, resourcePrefabs, spawns };
 
-  console.log('Extracting monsters…');
-  const { monsters, hidden, byGuid: monstersByGuid, displayByKey } = extractMonsters({ guidIndex, quantumIndex, en, lootByQuantumGuid: byQuantumGuid, appearances, elementIcons });
-  console.log(`  ${monsters.length} monsters (${hidden.length} boss hidden: ${hidden.join(', ') || 'none'})`);
-
-  const banners = extractSummons(en, monstersByGuid, itemsByGuid);
-  const summonable = monsters.filter((m) => m.summonable).length;
-  console.log(`  ${banners.length} summon banners, ${summonable} summonable monsters`);
-
-  console.log('Extracting recipes…');
-  let recipes = extractRecipes(itemsByGuid);
-  console.log(`  ${recipes.length} recipes`);
-
-  console.log('Extracting status effects…');
-  const statuses = extractStatusEffects(guidIndex, en);
-  console.log(`  ${statuses.length} status effects (${statuses.filter((s2) => s2.group === 'Buff').length} buffs, ${statuses.filter((s2) => s2.group === 'Debuff').length} debuffs)`);
-
-  console.log('Extracting talents…');
-  const talents = extractTalents(guidIndex, en);
-  console.log(`  ${talents.length} talents, ${talents.reduce((n, t) => n + t.levels.length, 0)} ranks`);
-
-  console.log('Extracting buildings…');
-  const buildings = extractBuildings(guidIndex, en, itemsByGuid);
-  console.log(`  ${buildings.length} purchasable buildings`);
-
-  console.log('Extracting game modes…');
-  const monsterLookup = {
-    linkable: new Set(monsters.map((m) => m.key)),
-    display: displayByKey,
-  };
-  const gamemodes = extractGameModes(guidIndex, en, monsterLookup, generators, itemsByGuid);
-  const allLevels = gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels)));
-  const levelCount = allLevels.length;
-  const waveCount = allLevels.reduce((n, l) => n + l.waves.length, 0);
-  for (const mode of gamemodes) {
-    const levels = mode.groups.reduce((n, g) => n + g.sets.reduce((m, s) => m + s.levels.length, 0), 0);
-    console.log(`  ${mode.name}: ${mode.groups.length} ${mode.key === 'adventure' ? 'chapters' : 'locations'}, ${levels} levels`);
-  }
-  console.log(`  ${levelCount} levels, ${waveCount} waves in total`);
-
-  link({ items, sets, tables, recipes, monsters });
-  tagItems(items, recipes);
-  const pruned = pruneExcludedItems({ items, sets, tables, recipes, unreferenced, gamemodes });
-  ({ items, sets, tables, recipes } = pruned);
-  console.log(`  ${pruned.dropped.size} items removed (${[...EXCLUDED_ITEM_CATEGORIES].join(', ')} + unreferenced)`);
+  // English is extracted first: which items the project references nowhere is a
+  // property of the project, not of the language, and finding out is expensive.
+  console.log('Extracting English…');
+  const english = extractLocalized(maps.get('en'), structural);
+  console.log('Checking which items the project actually uses…');
+  const unreferenced = findUnreferencedItems(english.items, english.fileByKey);
+  console.log(`  ${unreferenced.size} referenced nowhere`);
 
   mkdirSync(DATA, { recursive: true });
   mkdirSync(ICONS, { recursive: true });
+  clearStaleData();
 
-  const meta = {
-    generatedAt: new Date().toISOString(),
-    counts: {
-      items: items.length,
-      sets: sets.length,
-      lootTables: tables.length,
-      monsters: monsters.length,
-      recipes: recipes.length,
-      summonBanners: banners.length,
-      buildings: buildings.length,
-      talents: talents.length,
-      statuses: statuses.length,
-      chapters: gamemodes.find((m) => m.key === 'adventure')?.groups.length ?? 0,
-      gameModes: gamemodes.length,
-      levels: levelCount,
-    },
-    summonBanners: banners,
-    rarities: E.ItemRarities,
-    monsterRarities: E.MonsterRarities,
-    rarityColors: { item: E.ItemRarityColors, monster: E.MonsterRarityColors },
-    elements: E.Elements,
-    elementIcons,
-    hiddenBosses: hidden,
-    unreferencedItems: [...unreferenced].sort(),
-    warnings,
-  };
-
-  const write = (name, value) => {
-    const file = join(DATA, name);
-    writeFileSync(file, JSON.stringify(value));
-    return statSync(file).size;
-  };
-
+  const generatedAt = new Date().toISOString();
   let bytes = 0;
-  bytes += write('items.json', items);
-  bytes += write('monsters.json', monsters);
-  bytes += write('loot.json', tables);
-  bytes += write('recipes.json', recipes);
-  bytes += write('sets.json', sets);
-  bytes += write('buildings.json', buildings);
-  bytes += write('gamemodes.json', gamemodes);
-  bytes += write('talents.json', talents);
-  bytes += write('statuses.json', statuses);
+  let counts = null;
+  const everything = [];
+
+  for (const { code, name } of languages) {
+    const raw = code === 'en' ? english : extractLocalized(maps.get(code), structural);
+
+    link({ items: raw.items, sets: raw.sets, tables: raw.tables, recipes: raw.recipes, monsters: raw.monsters });
+    tagItems(raw.items, raw.recipes);
+    const pruned = pruneExcludedItems({ ...raw, unreferenced });
+    const p = { ...raw, ...pruned };
+
+    const levels = p.gamemodes.flatMap((m) => m.groups.flatMap((g) => g.sets.flatMap((s) => s.levels)));
+    counts ??= {
+      items: p.items.length,
+      sets: p.sets.length,
+      lootTables: p.tables.length,
+      monsters: p.monsters.length,
+      recipes: p.recipes.length,
+      summonBanners: p.banners.length,
+      buildings: p.buildings.length,
+      talents: p.talents.length,
+      statuses: p.statuses.length,
+      chapters: p.gamemodes.find((m) => m.key === 'adventure')?.groups.length ?? 0,
+      gameModes: p.gamemodes.length,
+      levels: levels.length,
+      waves: levels.reduce((n, l) => n + l.waves.length, 0),
+    };
+
+    const meta = {
+      generatedAt,
+      language: code,
+      languages,
+      counts,
+      strings: uiStrings.get(code),
+      labels: buildLabels(maps.get(code), uiStrings.get(code), collectVocabulary(p)),
+      summonBanners: p.banners,
+      rarities: E.ItemRarities,
+      monsterRarities: E.MonsterRarities,
+      rarityColors: { item: E.ItemRarityColors, monster: E.MonsterRarityColors },
+      elements: E.Elements,
+      elementIcons,
+      hiddenBosses: p.hidden,
+      unreferencedItems: [...unreferenced].sort(),
+      // Deduped: the same asset problem is reported once per language pass.
+      warnings: [...new Set(warnings)],
+    };
+
+    const dir = join(DATA, code);
+    mkdirSync(dir, { recursive: true });
+    const write = (file, value) => {
+      const target = join(dir, file);
+      writeFileSync(target, JSON.stringify(value));
+      return statSync(target).size;
+    };
+
+    let langBytes = 0;
+    langBytes += write('items.json', p.items);
+    langBytes += write('monsters.json', p.monsters);
+    langBytes += write('loot.json', p.tables);
+    langBytes += write('recipes.json', p.recipes);
+    langBytes += write('sets.json', p.sets);
+    langBytes += write('buildings.json', p.buildings);
+    langBytes += write('gamemodes.json', p.gamemodes);
+    langBytes += write('talents.json', p.talents);
+    langBytes += write('statuses.json', p.statuses);
+    langBytes += write('meta.json', meta);
+    bytes += langBytes;
+
+    everything.push(p.items, p.monsters, p.tables, p.recipes, p.sets, p.buildings, p.gamemodes, p.talents, p.statuses, meta);
+    console.log(`  ${code} (${name}): ${(langBytes / 1024).toFixed(0)} KB`);
+  }
 
   const siteAssets = copySiteAssets();
   console.log(`  ${siteAssets.length} site assets (${siteAssets.join(', ')})`);
 
   console.log('Copying icons…');
-  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, talents, statuses, meta]);
+  const orphans = pruneUnreferencedIcons(everything);
   writeIcons();
   console.log(`  ${iconJobs.size} icons (${orphans} unreferenced dropped)`);
 
-  // Written last so it carries the warnings raised while copying icons.
-  bytes += write('meta.json', meta);
+  // Icons are copied after the payloads, so any warning raised while copying is
+  // not yet in the meta files that were just written. Rewrite the warnings only.
+  rewriteWarnings(languages);
 
   // After every payload exists, so the hash covers the data too.
   const version = stampAssets();
@@ -1780,12 +1842,38 @@ function main() {
 
   console.log(`\nRead ${posix(PROJECT)}`);
   console.log(`Wrote ${(bytes / 1024).toFixed(0)} KB of JSON to ${posix(relative(SITE, DATA))}`);
-  if (warnings.length) {
-    console.log(`\n${warnings.length} warning(s):`);
-    for (const w of warnings.slice(0, 40)) console.log(`  - ${w}`);
-    if (warnings.length > 40) console.log(`  … ${warnings.length - 40} more (see data/meta.json)`);
+  const unique = [...new Set(warnings)];
+  if (unique.length) {
+    console.log(`\n${unique.length} warning(s):`);
+    for (const w of unique.slice(0, 40)) console.log(`  - ${w}`);
+    if (unique.length > 40) console.log(`  … ${unique.length - 40} more (see data/en/meta.json)`);
   }
   console.log(`\nDone in ${((Date.now() - started) / 1000).toFixed(1)}s`);
+}
+
+/**
+ * Remove the payloads of a previous run. Languages live in `data/<code>/`, so a
+ * language dropped from the project — or the flat layout this replaced — would
+ * otherwise be served forever.
+ */
+function clearStaleData() {
+  for (const entry of readdirSync(DATA, { withFileTypes: true })) {
+    const target = join(DATA, entry.name);
+    try { rmSync(target, { recursive: true, force: true, maxRetries: 3, retryDelay: 60 }); }
+    catch (err) { warn(`could not clear old data ${posix(relative(SITE, target))}: ${err.code ?? err.message}`); }
+  }
+}
+
+/** Patch the final warning list into every meta.json already on disk. */
+function rewriteWarnings(languages) {
+  const unique = [...new Set(warnings)];
+  for (const { code } of languages) {
+    const file = join(DATA, code, 'meta.json');
+    if (!existsSync(file)) continue;
+    const meta = JSON.parse(readFileSync(file, 'utf8'));
+    meta.warnings = unique;
+    writeFileSync(file, JSON.stringify(meta));
+  }
 }
 
 main();

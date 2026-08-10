@@ -312,6 +312,54 @@ which is why a stored `Identifier` always wins over a computed hash.
 `AssetGuid.ReservedBits` lives in `Quantum.Engine.dll`; its value
 (`0x4000000000000000`) was recovered by diffing computed against stored guids.
 
+## Eleven languages, one data set each
+
+`wiki/data/<code>/` holds a complete set of payloads per language — `en`, `fr`,
+`es`, `pt`, `th`, `ja`, `ru`, `ko`, `zh`, `de`, `vi`, whatever `I2Languages`
+declares. A visitor downloads only their own language, so the transfer is the same
+as it was when the wiki was English-only; the repository is about 3.8 MB of JSON
+instead of 340 KB, which nothing cares about.
+
+The alternative — one structural payload plus a translation overlay — was rejected
+on purpose. Descriptions like "+30% Total Attack" and "Starts with 60% Energy" are
+*assembled* from a template and a number, so an overlay would have to re-run that
+assembly, and any field forgotten in the overlay map would silently show English
+inside a translated page. Extracting per language makes that class of bug
+impossible: the whole pipeline runs again, and the language is just an argument.
+
+The expensive work — indexing 17k asset guids, scanning combat levels, finding
+which items the project references nowhere — is language-independent and happens
+once, so eleven languages cost about 11s instead of 6s.
+
+### Identifiers stay English, labels get translated
+
+A payload keeps the project's own identifiers: `rarity: "Common"`,
+`biome: "Volcano"`, `category: "Weapon"`. Only the *label* is translated, through
+`meta.labels`. That is what keeps `#/items?rarity=Legendary` meaning the same thing
+in every language — a filter in a shared URL must not break because the reader
+switched language.
+
+Labels come from the game's spreadsheet wherever the game has a term, which is
+most of them: `Rarities/*`, `Bestiary/*` for elements, `Biome/*`,
+`EquipmentSlot/*`, `Difficulty/*`, `Stats/*`, `Building/StationTypes/*`. Currencies
+are scattered (`MonsterInventory/Coin`, `Arena/Diamond`, `FloatingText/Energy`,
+`Events/DailyWheel/RaidKey`), so those are an explicit map rather than a formula.
+
+### The wiki's own text lives in tools/ui/
+
+The game has no wiki, so nothing in the spreadsheet says "Where it drops" or
+"Toughest monsters". Those ~200 strings are in `tools/ui/<code>.json`, one file per
+language with identical keys. **They were not translated by a human and are not in
+your spreadsheet** — edit them there if any wording is off.
+
+`en.json` is the reference. A key it has and another language lacks is reported and
+falls back to English; a key only another language has is reported as a likely
+typo; and a `{placeholder}` dropped in translation is reported too, because a lost
+placeholder renders as a literal `{n}` on the page.
+
+Nothing else is translated: the marketing and legal pages at the repository root
+are English only. Terms and a privacy policy are not something to machine-translate.
+
 ## Status effect descriptions are assembled, not stored
 
 No string in the project reads "+30% Total Attack". Three pieces make it:
