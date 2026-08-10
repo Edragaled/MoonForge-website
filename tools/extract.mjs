@@ -21,6 +21,7 @@ import { readUnityYaml, parseUnityYaml, fp } from './lib/unity-yaml.mjs';
 import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID } from './lib/quantum-guid.mjs';
 import { resolveSprite } from './lib/sprite.mjs';
 import { readTalentValues, fillTalentText, romanNumeral } from './lib/talents.mjs';
+import { readStatusEffectScripts, describeStatusEffect } from './lib/status-effects.mjs';
 import * as E from './lib/enums.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -63,6 +64,7 @@ const MONSTER_ENTITIES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', '
 const WORLD_RESOURCES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'WorldObjects', 'WorldResources');
 const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements');
 const TALENT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Talents');
+const STATUS_EFFECT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'StatusEffects');
 
 // The biome folders under LootTables/Monsters and the generator name prefixes
 // disagree on one name; the folder spelling is what the wiki shows.
@@ -1089,6 +1091,62 @@ function extractBuildings(guidIndex, en, itemsByGuid) {
   return buildings;
 }
 
+// ----------------------------------------------------------- status effects
+
+const STATUS_GROUPS = ['Buff', 'Debuff', 'Neutral'];
+
+/**
+ * Status effects, assembled the way the game's tooltip assembles them: numbers
+ * from the asset, sentence from localization, and the mapping between the two
+ * from the effect's `GetEffectValues` override.
+ */
+function extractStatusEffects(guidIndex, en) {
+  const scripts = readStatusEffectScripts(
+    walk(STATUS_EFFECT_SCRIPTS, (p) => p.endsWith('.cs') && !p.endsWith('StatusEffectData.cs')),
+    warn,
+  );
+
+  const effects = [];
+  for (const { file, doc } of loadDocs(walk(join(SO, 'StatusEffects'), isAsset))) {
+    const b = doc.body;
+    if (!b?.NameKey) continue;
+
+    const assetName = basename(file, '.asset');
+    const scriptPath = guidIndex.get(scriptGuid(doc));
+    const script = scriptPath && scripts.get(basename(scriptPath, '.cs'));
+    if (!script) { warn(`status effect ${assetName} has no readable script — skipped`); continue; }
+
+    // Every `{RawValue: n}` on the asset is an FP the description may reference.
+    const fields = new Map();
+    for (const [key, value] of Object.entries(b)) {
+      if (value && typeof value === 'object' && value.RawValue !== undefined) fields.set(key, fp(value));
+    }
+
+    const name = en.get(`StatusEffect/${b.NameKey}`) ?? prettify(b.NameKey);
+    const described = describeStatusEffect(
+      en.get(`StatusEffect/${b.NameKey}Description`), script, fields, warn, assetName,
+    );
+    if (!described) warn(`status effect ${assetName} has no description string`);
+
+    effects.push({
+      key: b.NameKey.replace(/([a-z0-9])([A-Z])/g, '$1_$2').toLowerCase(),
+      name,
+      group: STATUS_GROUPS[b.Group ?? 0] ?? 'Neutral',
+      icon: queueIcon(b.Icon, guidIndex, 'statuses', b.NameKey.toLowerCase()),
+      // A tick rate only means something for effects that actually tick; the rest
+      // serialize it as 0.
+      tickSeconds: fields.get('TickRate') || null,
+      effects: described?.parts ?? [],
+    });
+  }
+
+  // Buffs first, then debuffs, then the two that are neither, alphabetical inside
+  // each group — the same order the tab shows them in.
+  effects.sort((a, b2) => STATUS_GROUPS.indexOf(a.group) - STATUS_GROUPS.indexOf(b2.group)
+    || a.name.localeCompare(b2.name));
+  return effects;
+}
+
 // ------------------------------------------------------------------ talents
 
 /**
@@ -1625,6 +1683,10 @@ function main() {
   let recipes = extractRecipes(itemsByGuid);
   console.log(`  ${recipes.length} recipes`);
 
+  console.log('Extracting status effects…');
+  const statuses = extractStatusEffects(guidIndex, en);
+  console.log(`  ${statuses.length} status effects (${statuses.filter((s2) => s2.group === 'Buff').length} buffs, ${statuses.filter((s2) => s2.group === 'Debuff').length} debuffs)`);
+
   console.log('Extracting talents…');
   const talents = extractTalents(guidIndex, en);
   console.log(`  ${talents.length} talents, ${talents.reduce((n, t) => n + t.levels.length, 0)} ranks`);
@@ -1668,6 +1730,7 @@ function main() {
       summonBanners: banners.length,
       buildings: buildings.length,
       talents: talents.length,
+      statuses: statuses.length,
       chapters: gamemodes.find((m) => m.key === 'adventure')?.groups.length ?? 0,
       gameModes: gamemodes.length,
       levels: levelCount,
@@ -1698,12 +1761,13 @@ function main() {
   bytes += write('buildings.json', buildings);
   bytes += write('gamemodes.json', gamemodes);
   bytes += write('talents.json', talents);
+  bytes += write('statuses.json', statuses);
 
   const siteAssets = copySiteAssets();
   console.log(`  ${siteAssets.length} site assets (${siteAssets.join(', ')})`);
 
   console.log('Copying icons…');
-  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, talents, meta]);
+  const orphans = pruneUnreferencedIcons([items, monsters, tables, recipes, sets, buildings, gamemodes, talents, statuses, meta]);
   writeIcons();
   console.log(`  ${iconJobs.size} icons (${orphans} unreferenced dropped)`);
 

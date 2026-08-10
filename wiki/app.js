@@ -3,7 +3,7 @@
 
 'use strict';
 
-const DB = { items: [], monsters: [], loot: [], recipes: [], sets: [], buildings: [], gamemodes: [], talents: [], meta: null };
+const DB = { items: [], monsters: [], loot: [], recipes: [], sets: [], buildings: [], gamemodes: [], talents: [], statuses: [], meta: null };
 const IX = {
   item: new Map(), monster: new Map(), loot: new Map(), recipe: new Map(),
   set: new Map(), building: new Map(), mode: new Map(), chapter: new Map(),
@@ -187,6 +187,7 @@ function renderHome() {
       <a class="stat-tile" href="#/recipes"><b>${nf(c.recipes)}</b><span>Recipes</span></a>
       <a class="stat-tile" href="#/buildings"><b>${nf(c.buildings)}</b><span>Buildings</span></a>
       <a class="stat-tile" href="#/talents"><b>${nf(c.talents)}</b><span>Talents</span></a>
+      <a class="stat-tile" href="#/status"><b>${nf(c.statuses)}</b><span>Status effects</span></a>
       <a class="stat-tile" href="#/modes"><b>${nf(c.levels)}</b><span>Adventure levels</span></a>
     </div>
 
@@ -848,6 +849,47 @@ function renderBuildings(params) {
   return frag;
 }
 
+/* ----------------------------------------------------------- status effects */
+
+const statusCard = (s) => el(`<section class="status s-${cls(s.group)}">
+  <span class="thumb status-icon">${iconImg(s.icon, s.name)}</span>
+  <div class="status-body">
+    <span class="status-name">${esc(s.name)}${s.tickSeconds ? `<span class="skill-kind">every ${esc(String(s.tickSeconds))}s</span>` : ''}</span>
+    ${s.effects.length
+    ? `<ul class="status-effects">${s.effects.map((e) => `<li>${esc(e)}</li>`).join('')}</ul>`
+    : '<p class="status-none">No description.</p>'}
+  </div>
+</section>`);
+
+function renderStatuses(params) {
+  const group = params.get('group') ?? 'all';
+  const groups = [...new Set(DB.statuses.map((s) => s.group))];
+  const shown = group === 'all' ? groups : groups.filter((g) => g === group);
+
+  const frag = el(`<div>
+    <h1>Status effects</h1>
+    <p class="subtitle">${nf(DB.statuses.length)} effects — ${nf(DB.statuses.filter((s) => s.group === 'Buff').length)}
+      buffs and ${nf(DB.statuses.filter((s) => s.group === 'Debuff').length)} debuffs. Values are the ones the game's own
+      tooltips show.</p>
+    <div class="filters">
+      ${chipGroup('Group', 'group', groups, group)}
+    </div>
+    <div id="list"></div>
+  </div>`);
+
+  frag.getElementById('list').append(...shown.map((g) => {
+    const section = el(`<section>
+      <h2 class="status-group ${cls(g)}">${esc(g === 'Buff' ? 'Buffs' : g === 'Debuff' ? 'Debuffs' : g)}</h2>
+      <div class="status-grid"></div>
+    </section>`);
+    section.querySelector('.status-grid').append(...DB.statuses.filter((s) => s.group === g).map(statusCard));
+    return section;
+  }));
+
+  wireFilters(frag);
+  return frag;
+}
+
 /* ------------------------------------------------------------------ talents */
 
 function renderTalents() {
@@ -1054,6 +1096,7 @@ function searchAll(query) {
   for (const t of DB.loot) push('Loot', t.sourceName, `#/loot/${slug(t.id)}`, t.icon, t.id);
   for (const b of DB.buildings) push('Building', b.name, `#/buildings`, b.icon, b.key);
   for (const t of DB.talents) push('Talent', t.name, `#/talents`, t.icon, t.key);
+  for (const s of DB.statuses) push(s.group === 'Debuff' ? 'Debuff' : 'Buff', s.name, `#/status`, s.icon, s.key);
   for (const m of DB.gamemodes) {
     push('Mode', m.name, `#/mode/${slug(m.key)}`, m.icon, m.key);
     for (const g of m.groups) push(m.key === 'adventure' ? 'Chapter' : m.name, g.name, `#/chapter/${slug(g.key)}`, null, g.key);
@@ -1148,6 +1191,7 @@ function route() {
       case 'sets': content = renderSets(); break;
       case 'buildings': content = renderBuildings(params); break;
       case 'talents': content = renderTalents(); break;
+      case 'status': content = renderStatuses(params); break;
       case 'modes': content = renderModes(); break;
       case 'mode': content = renderMode(key); break;
       case 'chapter': content = renderChapter(key, params); break;
@@ -1194,7 +1238,7 @@ window.addEventListener('hashchange', route);
 /* --------------------------------------------------------------------- boot */
 
 async function boot() {
-  const names = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'talents', 'meta'];
+  const names = ['items', 'monsters', 'loot', 'recipes', 'sets', 'buildings', 'gamemodes', 'talents', 'statuses', 'meta'];
   try {
     // The preview bundle inlines the payloads, so it can run from file:// where
     // fetch is blocked.
@@ -1227,7 +1271,7 @@ async function boot() {
 
 /** Populate DB and the lookup indexes from the loaded payloads. */
 function install(payloads) {
-  [DB.items, DB.monsters, DB.loot, DB.recipes, DB.sets, DB.buildings, DB.gamemodes, DB.talents, DB.meta] = payloads;
+  [DB.items, DB.monsters, DB.loot, DB.recipes, DB.sets, DB.buildings, DB.gamemodes, DB.talents, DB.statuses, DB.meta] = payloads;
 
   for (const i of DB.items) IX.item.set(i.key, i);
   for (const m of DB.monsters) IX.monster.set(m.key, m);

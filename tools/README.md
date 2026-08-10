@@ -312,6 +312,32 @@ which is why a stored `Identifier` always wins over a computed hash.
 `AssetGuid.ReservedBits` lives in `Quantum.Engine.dll`; its value
 (`0x4000000000000000`) was recovered by diffing computed against stored guids.
 
+## Status effect descriptions are assembled, not stored
+
+No string in the project reads "+30% Total Attack". Three pieces make it:
+
+1. the asset holds the number (`AttackIncreaseMultiplier: {RawValue: 19661}` = 0.30);
+2. localization holds the sentence (`{[ATTACK]} Total Attack`);
+3. the effect's `GetEffectValues` override says which field fills `{[ATTACK]}` and
+   which of the four formats to use.
+
+`lib/status-effects.mjs` reads the override and reproduces `EffectValue.FormatValue`
+character for character, so the wiki's numbers read exactly like the in-game
+tooltip. The asset's value always wins over the C# field initializer; a field
+missing from the asset falls back to the initializer *and* warns, because Unity
+should have serialized it.
+
+Two consequences worth knowing:
+
+- **`PercentNoPlus` prints a plus.** In `StatusEffectData.FormatValue`,
+  `PercentNoPlus => $"+{IntValue}%"` while `Percent` only adds the sign when the
+  value is positive — the names are the wrong way round. It is used for
+  damage-over-time magnitudes, so Burn reads "Damage for +1% of Max HP". The wiki
+  copies this rather than quietly disagreeing with the game.
+- **Descriptions separate clauses with a double space**, which the wiki splits into
+  a bullet per clause. Collapsing that spacing in localization would merge them
+  back into one run-on line.
+
 ## Talent numbers come out of C#
 
 Talents are the one section whose values are not in the project's data. A talent

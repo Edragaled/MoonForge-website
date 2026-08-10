@@ -25,6 +25,9 @@
   --special: #fd54fd;
   --passive: #f0b877;
 
+  --buff: #6fcf6f;
+  --debuff: #e8685f;
+
   --neutral: #9aa1b4;
   --water: #4fa8e8;
   --fire: #ef7043;
@@ -56,6 +59,8 @@
   --rarity-mix-amount: 55%;
   --special: #b810b8;
   --passive: #a2661a;
+  --buff: #2f8b32;
+  --debuff: #c0362c;
   --shadow: 0 1px 2px rgb(16 22 40 / .06), 0 8px 24px -14px rgb(16 22 40 / .18);
 }
 
@@ -460,6 +465,67 @@ td .with-icon > .sprite { height: 22px; max-width: 22px; flex: none; }
 .skill-kind.special { color: var(--special); }
 .skill-kind.passive { color: var(--passive); }
 .skill p { margin: 6px 0 0; font-size: 13px; color: var(--text-dim); }
+
+/* -------------------------------------------------------- status effects */
+
+.status-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  margin: 26px 0 12px;
+}
+.status-group::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--line-soft);
+}
+.status-group.buff { color: var(--buff); }
+.status-group.debuff { color: var(--debuff); }
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(272px, 1fr));
+  gap: 10px;
+}
+
+.status {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line-soft);
+  /* The group reads off the left edge, so the card itself stays neutral and the
+     tint never fights the icon art. */
+  border-left: 3px solid var(--group, var(--neutral));
+  border-radius: var(--radius);
+}
+.status.s-buff { --group: var(--buff); }
+.status.s-debuff { --group: var(--debuff); }
+
+.status-icon { width: 40px; height: 40px; flex: none; }
+.status-body { min-width: 0; }
+.status-name { display: block; font-weight: 600; font-size: 14px; }
+.status-effects {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+.status-effects li { padding-left: 11px; position: relative; }
+.status-effects li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: .55em;
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--group, var(--text-faint));
+}
+.status-none { margin: 6px 0 0; font-size: 13px; color: var(--text-faint); }
 
 /* Talent ranks: roman numerals read as a column of labels, not as figures. */
 td.rank {
