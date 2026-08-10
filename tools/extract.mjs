@@ -1214,7 +1214,9 @@ function extractBastion(guidIndex, L, monsters) {
       playerMultiplier: round4(playerMultiplier),
       // Wave time is hardcoded in BastionWaveConfig.GetWaveInterval, not authored.
       waveSeconds: 45,
-      milestones: [1, 5, 10, 20, 30, 40, 50].map(curve),
+      // Wave 1 and 5, then every tenth up to 100 — one boss wave per row from
+      // there on, which is the rhythm a reader is actually pacing against.
+      milestones: [1, 5, ...Array.from({ length: 10 }, (_, i) => (i + 1) * 10)].map(curve),
       bosses,
       pools,
       upgrades,
