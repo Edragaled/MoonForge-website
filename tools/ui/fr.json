@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "Offensif",
   "vocab.upgradeCategory.Defensive": "Défensif",
   "vocab.upgradeCategory.Utility": "Utilitaire",
-  "vocab.upgradeCategory.Specialist": "Spécialiste"
+  "vocab.upgradeCategory.Specialist": "Spécialiste",
+  "talents.oddsNote": "Tirer un talent choisit un des {n} talents au hasard — {pct}% chacun — puis son rang, avec les probabilités ci-dessous."
 }

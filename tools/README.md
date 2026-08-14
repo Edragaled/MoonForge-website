@@ -451,6 +451,23 @@ defensive `0 =>` arm; talents start at rank 1, so level 0 is dropped.
 This makes talents the section most likely to go stale quietly: rebalancing them
 is a code change, so re-run the extractor after touching those scripts.
 
+### The rank odds come from the title data provider
+
+35 / 35 / 15 / 10 / 5 for ranks I–V. They are not in an asset either:
+`Core/Editor/TitleData/TalentTitleDataProvider.cs` builds them in C# and uploads
+them as the `TalentConfig` title data, and the server rolls a rank against them
+(`TalentConfig.GetRandomTalent` in the Azure Functions). Reading the provider is
+what keeps the published odds in step with what actually gets uploaded.
+
+The talent itself is drawn uniformly — the provider sends nothing but the count,
+so the server has nothing else to weight by. **But the server draws it with
+`random.Next(0, TalentCount - 1)`, and `System.Random.Next`'s upper bound is
+exclusive**, so with 8 talents it only ever returns 0–6. Index 7 in the
+`TalentDB` order is `TimingTalent`, which therefore cannot currently be rolled at
+all. The wiki publishes the intended `1 / count`, not the off-by-one, because the
+fix is one character and publishing "Timing: 0%" would be wrong the moment it
+lands.
+
 `Talent/Shatter` exists in localization with no matching asset, so it is not
 listed.
 

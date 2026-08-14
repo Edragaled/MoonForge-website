@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "进攻",
   "vocab.upgradeCategory.Defensive": "防守",
   "vocab.upgradeCategory.Utility": "辅助",
-  "vocab.upgradeCategory.Specialist": "专精"
+  "vocab.upgradeCategory.Specialist": "专精",
+  "talents.oddsNote": "抽取天赋时会先从 {n} 个天赋中等概率抽出一个（各 {pct}%），再按下方概率决定阶级。"
 }

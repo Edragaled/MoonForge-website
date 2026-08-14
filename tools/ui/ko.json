@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "공격",
   "vocab.upgradeCategory.Defensive": "방어",
   "vocab.upgradeCategory.Utility": "유틸리티",
-  "vocab.upgradeCategory.Specialist": "특화"
+  "vocab.upgradeCategory.Specialist": "특화",
+  "talents.oddsNote": "특성을 뽑으면 {n}종의 특성 중 하나가 균등하게(각 {pct}%) 정해지고, 이어서 아래 확률로 등급이 정해집니다."
 }

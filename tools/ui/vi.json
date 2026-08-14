@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "Tấn công",
   "vocab.upgradeCategory.Defensive": "Phòng thủ",
   "vocab.upgradeCategory.Utility": "Hỗ trợ",
-  "vocab.upgradeCategory.Specialist": "Chuyên biệt"
+  "vocab.upgradeCategory.Specialist": "Chuyên biệt",
+  "talents.oddsNote": "Khi quay thiên phú, một trong {n} thiên phú được chọn ngẫu nhiên — mỗi loại {pct}% — rồi mới tới bậc, theo tỉ lệ bên dưới."
 }

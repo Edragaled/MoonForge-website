@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "攻撃",
   "vocab.upgradeCategory.Defensive": "防御",
   "vocab.upgradeCategory.Utility": "汎用",
-  "vocab.upgradeCategory.Specialist": "特化"
+  "vocab.upgradeCategory.Specialist": "特化",
+  "talents.oddsNote": "才能を引くと、{n} 種類の才能から 1 つが均等（各 {pct}%）に選ばれ、その後に下の確率でランクが決まります。"
 }

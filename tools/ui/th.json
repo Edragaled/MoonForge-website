@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "บุก",
   "vocab.upgradeCategory.Defensive": "รับ",
   "vocab.upgradeCategory.Utility": "สนับสนุน",
-  "vocab.upgradeCategory.Specialist": "เฉพาะทาง"
+  "vocab.upgradeCategory.Specialist": "เฉพาะทาง",
+  "talents.oddsNote": "การสุ่มทาเลนต์จะเลือกหนึ่งใน {n} ทาเลนต์แบบเท่ากัน (อย่างละ {pct}%) แล้วจึงสุ่มระดับตามโอกาสด้านล่าง"
 }

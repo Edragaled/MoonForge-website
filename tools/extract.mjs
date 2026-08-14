@@ -20,7 +20,7 @@ import { createHash } from 'node:crypto';
 import { readUnityYaml, parseUnityYaml, fp } from './lib/unity-yaml.mjs';
 import { assetGuid, buildPrototypeIndex, readMetaGuid, PREFAB_PROTOTYPE_FILE_ID } from './lib/quantum-guid.mjs';
 import { resolveSprite } from './lib/sprite.mjs';
-import { readTalentValues, fillTalentText, romanNumeral } from './lib/talents.mjs';
+import { readTalentValues, fillTalentText, romanNumeral, readTalentDrawOdds } from './lib/talents.mjs';
 import { readStatusEffectScripts, describeStatusEffect } from './lib/status-effects.mjs';
 import { loadLanguages } from './lib/i18n.mjs';
 import { loadUiStrings } from './lib/ui-strings.mjs';
@@ -67,6 +67,7 @@ const MONSTER_ENTITIES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', '
 const WORLD_RESOURCES = join(ASSETS, 'QuantumUser', 'Simulation', 'Entities', 'WorldObjects', 'WorldResources');
 const ELEMENT_ICONS = join(ASSETS, 'Resources_moved', 'UI', 'Icons', 'Elements');
 const TALENT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Talents');
+const TALENT_ODDS = join(ASSETS, 'Core', 'Editor', 'TitleData', 'TalentTitleDataProvider.cs');
 const STATUS_EFFECT_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'StatusEffects');
 const UI_STRINGS = join(HERE, 'ui');
 const BASTION_UPGRADE_SCRIPTS = join(ASSETS, 'QuantumUser', 'Simulation', 'AssetTypes', 'Bastion', 'Upgrades', 'PlayerUpgrades');
@@ -1365,6 +1366,7 @@ function extractStatusEffects(guidIndex, en) {
 function extractTalents(guidIndex, en) {
   const scripts = walk(TALENT_SCRIPTS, (p) => /Talent\.cs$/.test(p));
   const values = readTalentValues(scripts, warn);
+  const drawOdds = readTalentDrawOdds(TALENT_ODDS, warn);
 
   const talents = [];
   for (const { file, doc } of loadDocs(walk(join(SO, 'Talents'), isAsset))) {
@@ -1384,6 +1386,9 @@ function extractTalents(guidIndex, en) {
       level,
       roman: romanNumeral(level),
       description: fillTalentText(descTemplate, parsed.levels.get(level), level),
+      // The odds are per rank and identical for every talent, so they ride along
+      // on each rank rather than sitting in a table of their own.
+      chance: drawOdds?.[level - 1] ?? null,
     }));
 
     talents.push({

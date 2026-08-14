@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "Атака",
   "vocab.upgradeCategory.Defensive": "Защита",
   "vocab.upgradeCategory.Utility": "Поддержка",
-  "vocab.upgradeCategory.Specialist": "Специалист"
+  "vocab.upgradeCategory.Specialist": "Специалист",
+  "talents.oddsNote": "Бросок таланта берёт один из {n} талантов случайно — по {pct}% — а затем его ранг с указанными ниже шансами."
 }

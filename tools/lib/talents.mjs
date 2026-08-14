@@ -110,3 +110,32 @@ export function fillTalentText(text, values, level) {
 }
 
 export const romanNumeral = (n) => ROMAN[n] ?? String(n);
+
+/**
+ * The odds of each rank when a talent is rolled.
+ *
+ * They are not in an asset: `TalentTitleDataProvider` builds them in C# and
+ * uploads them as title data, and the server rolls a rank against them. Reading
+ * the provider keeps the wiki in step with what actually gets published.
+ */
+export function readTalentDrawOdds(file, onWarn = () => {}) {
+  let source;
+  try { source = readFileSync(file, 'utf8'); }
+  catch { onWarn('TalentTitleDataProvider.cs not found — talent rank odds unavailable'); return null; }
+
+  const block = /LevelProbabilities\s*=\s*new\[\]\s*\{([^}]*)\}/.exec(source)?.[1];
+  if (!block) { onWarn('TalentTitleDataProvider.cs no longer declares LevelProbabilities as a literal array — rank odds unavailable'); return null; }
+
+  const odds = block.split(',')
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => Number(s));
+
+  if (!odds.length || odds.some((n) => !Number.isFinite(n))) { onWarn('could not read the talent rank odds'); return null; }
+
+  const total = odds.reduce((a, b) => a + b, 0);
+  // Rounded because 0.1 + 0.35 + … does not land on 1 exactly in binary floats.
+  if (Math.abs(total - 1) > 1e-6) onWarn(`talent rank odds sum to ${total}, not 1`);
+
+  return odds.map((n) => Math.round(n * 1000) / 10);
+}

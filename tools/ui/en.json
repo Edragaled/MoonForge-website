@@ -230,5 +230,6 @@
   "vocab.upgradeCategory.Offensive": "Offensive",
   "vocab.upgradeCategory.Defensive": "Defensive",
   "vocab.upgradeCategory.Utility": "Utility",
-  "vocab.upgradeCategory.Specialist": "Specialist"
+  "vocab.upgradeCategory.Specialist": "Specialist",
+  "talents.oddsNote": "Rolling a talent draws one of the {n} talents at random — {pct}% each — and then its rank, with the odds below."
 }

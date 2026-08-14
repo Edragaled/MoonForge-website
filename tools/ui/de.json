@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "Offensiv",
   "vocab.upgradeCategory.Defensive": "Defensiv",
   "vocab.upgradeCategory.Utility": "Unterstützung",
-  "vocab.upgradeCategory.Specialist": "Spezialist"
+  "vocab.upgradeCategory.Specialist": "Spezialist",
+  "talents.oddsNote": "Ein Talentwurf zieht eines der {n} Talente zufällig — je {pct}% — und danach seinen Rang mit den Chancen unten."
 }

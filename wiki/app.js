@@ -936,9 +936,17 @@ function renderStatuses(params) {
 /* ------------------------------------------------------------------ talents */
 
 function renderTalents() {
+  // The odds come from the title data the game uploads; without them the table
+  // simply drops the column rather than showing a blank one.
+  const hasOdds = DB.talents.some((talent) => talent.levels.some((l) => l.chance != null));
+
   const frag = el(`<div>
     <h1>${esc(t('talents.title'))}</h1>
     <p class="subtitle">${esc(t('talents.subtitle', { n: nf(DB.talents.length) }))}</p>
+    ${hasOdds ? `<p class="empty-note">${esc(t('talents.oddsNote', {
+    n: nf(DB.talents.length),
+    pct: round(100 / DB.talents.length, 1),
+  }))}</p>` : ''}
     <div class="panels" id="list"></div>
   </div>`);
 
@@ -950,8 +958,16 @@ function renderTalents() {
         <span class="skill-kind">${esc(t('talents.ranks', { n: nf(talent.maxLevel) }))}</span>
       </span>
     </div>
-    <div class="table-wrap"><table><thead><tr><th>${esc(t('col.rank'))}</th><th>${esc(t('col.effect'))}</th></tr></thead><tbody>
-      ${talent.levels.map((l) => `<tr><td class="rank">${esc(l.roman)}</td><td>${esc(l.description ?? '—')}</td></tr>`).join('')}
+    <div class="table-wrap"><table><thead><tr>
+      <th>${esc(t('col.rank'))}</th>
+      ${hasOdds ? `<th class="num">${esc(t('col.chance'))}</th>` : ''}
+      <th>${esc(t('col.effect'))}</th>
+    </tr></thead><tbody>
+      ${talent.levels.map((l) => `<tr>
+        <td class="rank">${esc(l.roman)}</td>
+        ${hasOdds ? `<td class="num">${l.chance == null ? '—' : chanceCell(l.chance)}</td>` : ''}
+        <td>${esc(l.description ?? '—')}</td>
+      </tr>`).join('')}
     </tbody></table></div>
   </section>`)));
 

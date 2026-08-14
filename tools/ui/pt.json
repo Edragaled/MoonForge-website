@@ -229,5 +229,6 @@
   "vocab.upgradeCategory.Offensive": "Ofensiva",
   "vocab.upgradeCategory.Defensive": "Defensiva",
   "vocab.upgradeCategory.Utility": "Utilidade",
-  "vocab.upgradeCategory.Specialist": "Especialista"
+  "vocab.upgradeCategory.Specialist": "Especialista",
+  "talents.oddsNote": "Sortear um talento escolhe um dos {n} talentos ao acaso — {pct}% cada — e depois o seu rank, com as probabilidades abaixo."
 }
